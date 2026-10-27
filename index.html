@@ -190,8 +190,10 @@ const RANGE_LABELS = {
   shadowX:['shadowXVal',v=>v+' px'],shadowY:['shadowYVal',v=>v+' px'],exportQuality:['exportQualityVal',v=>v+'%']
 };
 let customFont = null;
+let fontLoadToken = 0;
 let backgroundImage = null;
 let backgroundImageUrl = null;
+let backgroundLoadToken = 0;
 let hasDrawn = false;
 let renderQueued = false;
 let undoStack = [];
@@ -300,6 +302,10 @@ function updateConditionalControls(){
   $('gradientControls').hidden=$('fillMode').value!=='gradient';
 }
 function queueRender(){
+  // Invalidate the previous bitmap immediately so a click cannot export stale content
+  // during the frame between an edit and the next preview render.
+  hasDrawn=false;
+  $('downloadBtn').disabled=true;
   if(renderQueued)return;
   renderQueued=true;
   requestAnimationFrame(()=>{
@@ -402,8 +408,9 @@ function render(){
     const fillMode=$('fillMode').value;
     let gradient=null;
     if(fillMode==='gradient'){
-      const gradLeft=-Math.max(1,maxLineWidth/2);
-      gradient=ctx.createLinearGradient(gradLeft,0,Math.max(1,maxLineWidth/2),0);
+      const gradLeft=leftBase==='left'?0:leftBase==='center'?-maxLineWidth/2:-maxLineWidth;
+      const gradRight=leftBase==='left'?Math.max(1,maxLineWidth):leftBase==='center'?Math.max(1,maxLineWidth/2):0;
+      gradient=ctx.createLinearGradient(gradLeft,0,gradRight,0);
       gradient.addColorStop(0,$('gradientStart').value);
       gradient.addColorStop(1,$('gradientEnd').value);
     }else gradient=$('fontColor').value;
@@ -415,13 +422,13 @@ function render(){
       let lineX=leftBase==='left'?0:leftBase==='center'?-lineWidth/2:-lineWidth;
       const y=lineYStart+index*lineGap;
       if(shadowEnabled){
+        // Draw a blurred, offset silhouette behind the text rather than a second
+        // opaque copy of the letters at the original position.
         ctx.save();
-        ctx.shadowColor=$('shadowColor').value;
-        ctx.shadowBlur=shadowBlur;
-        ctx.shadowOffsetX=shadowX;
-        ctx.shadowOffsetY=shadowY;
+        ctx.filter=shadowBlur>0?'blur('+shadowBlur+'px)':'none';
+        ctx.globalAlpha=.82;
         ctx.fillStyle=$('shadowColor').value;
-        drawSpacedText(line,lineX,y,spacing,false);
+        drawSpacedText(line,lineX+shadowX,y+shadowY,spacing,false);
         ctx.restore();
       }
       if(strokeEnabled){
@@ -434,8 +441,7 @@ function render(){
       if(lineWidth>0&&decoration){
         ctx.save();
         ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetX=0;ctx.shadowOffsetY=0;
-        ctx.strokeStyle=$('fontColor').value;
-        if(fillMode==='gradient')ctx.strokeStyle=$('gradientEnd').value;
+        ctx.strokeStyle=gradient;
         ctx.lineWidth=Math.max(1,fontSize/24);
         ctx.beginPath();
         if($('underline').checked){
@@ -462,7 +468,7 @@ function render(){
   }
 }
 function changeSettingsHandler(){
-  updateLabels();updateConditionalControls();syncDimensionInputs();persistSettings();queueRender();
+  updateLabels();updateConditionalControls();persistSettings();queueRender();
 }
 const settingElements=CONTROL_IDS.map(id=>$(id)).filter(Boolean);
 settingElements.forEach(el=>{
@@ -505,17 +511,20 @@ document.addEventListener('keydown',event=>{
 
 $('fontFile').addEventListener('change',async event=>{
   const file=event.target.files&&event.target.files[0];if(!file)return;
+  const token=++fontLoadToken;
   const oldText=$('fontStatus').textContent;
   $('fontStatus').textContent='読み込み中…';
   try{
     const bytes=await file.arrayBuffer();
     const candidate=new FontFace('StudioUploadedFont',bytes);
     await candidate.load();
+    if(token!==fontLoadToken)return;
     if(customFont)document.fonts.delete(customFont);
     document.fonts.add(candidate);customFont=candidate;
     $('fontStatus').textContent=file.name;
     queueRender();status('フォントを読み込みました。','success');
   }catch(error){
+    if(token!==fontLoadToken)return;
     console.error('Font loading failed:',error);
     $('fontStatus').textContent=oldText;
     status('フォントを読み込めませんでした。OTF / TTF形式か確認してください。','error');
@@ -528,19 +537,23 @@ $('clearFontBtn').addEventListener('click',()=>{
 });
 $('bgImage').addEventListener('change',event=>{
   const file=event.target.files&&event.target.files[0];if(!file)return;
+  const token=++backgroundLoadToken;
   if(!file.type.startsWith('image/')){status('画像ファイルを選んでください。','error');return;}
   const url=URL.createObjectURL(file);
   const image=new Image();
   image.onload=()=>{
+    if(token!==backgroundLoadToken){URL.revokeObjectURL(url);return;}
     if(backgroundImageUrl)URL.revokeObjectURL(backgroundImageUrl);
     backgroundImage=image;backgroundImageUrl=url;queueRender();status('背景画像を読み込みました。','success');
   };
   image.onerror=()=>{
-    URL.revokeObjectURL(url);status('背景画像を開けませんでした。別の画像を選んでください。','error');
+    URL.revokeObjectURL(url);
+    if(token===backgroundLoadToken)status('背景画像を開けませんでした。別の画像を選んでください。','error');
   };
   image.src=url;
 });
 $('removeImageBtn').addEventListener('click',()=>{
+  backgroundLoadToken++;
   backgroundImage=null;if(backgroundImageUrl)URL.revokeObjectURL(backgroundImageUrl);
   backgroundImageUrl=null;$('bgImage').value='';queueRender();status('背景画像を外しました。','success');
 });
