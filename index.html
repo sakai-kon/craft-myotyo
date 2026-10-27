@@ -50,6 +50,81 @@ input[type=file]{width:100%;font-size:.82rem}
 footer{max-width:1500px;margin:0 auto;padding:0 18px 22px;color:var(--muted);font-size:.75rem}
 @media(max-width:900px){main{grid-template-columns:1fr;padding:12px}.panel{padding:13px}#workspace{grid-row:1}#stage{min-height:260px;padding:10px}#canvas{max-height:56vh}header{position:static}.brand p{max-width:58vw}}
 @media(max-width:480px){header{padding:12px;align-items:flex-start}.brand h1{font-size:1rem}.brand p{font-size:.72rem}.header-actions{gap:5px}.header-actions .btn{padding:8px;font-size:.78rem}main{gap:10px}.grid2{gap:9px}.exportbar{grid-template-columns:1fr 1fr}.exportbar button{grid-column:1/-1}.panel h2{font-size:.94rem}}
+/* Compact viewport layout: keep the whole application inside the visible screen. */
+:root{--header-height:66px}
+html,body{width:100%;height:100%;height:100dvh;overflow:hidden}
+body{display:flex;flex-direction:column}
+header{height:var(--header-height);min-height:var(--header-height);flex:0 0 var(--header-height);padding:8px 16px}
+main{width:100%;height:calc(100dvh - var(--header-height));min-height:0;flex:1;overflow:hidden;grid-template-columns:minmax(320px,410px) minmax(0,1fr);gap:12px;padding:12px;max-width:none;margin:0}
+#controls{display:grid;grid-template-rows:auto minmax(0,1fr);gap:8px;height:100%;min-height:0;overflow:hidden}
+.settings-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:4px;border:1px solid var(--line);border-radius:12px;background:#e9edf5}
+.settings-tab{min-width:0;padding:8px 3px;border:1px solid transparent;border-radius:8px;background:transparent;color:#48536a;font-size:.8rem;font-weight:750;white-space:nowrap}
+.settings-tab.active{background:#fff;color:var(--blue);border-color:#d6e2fb;box-shadow:0 1px 3px rgba(24,42,75,.08)}
+.settings-tab:focus-visible{outline-offset:1px}
+#controls>.panel{display:none;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:12px}
+#controls>.panel.active{display:block}
+#controls>.panel[hidden]{display:none!important}
+.panel h2{margin-bottom:9px}
+label{font-size:.79rem;margin-bottom:4px}
+input[type=text],input[type=number],select,textarea{padding:7px 8px;font-size:.86rem}
+textarea{min-height:72px}
+input[type=range]{margin:4px 0 0}
+input[type=color]{height:32px}
+.grid2{gap:9px;margin:7px 0}
+.check{gap:6px;margin:6px 0;font-size:.8rem}
+.hint{font-size:.72rem}
+.sep{margin:9px 0}
+.toolbar{gap:5px}
+.toolbar .btn{padding:7px 8px;font-size:.78rem}
+#workspace{height:100%;min-height:0;gap:8px;overflow:hidden}
+.workspacebar{flex:0 0 auto;min-height:44px;gap:8px}
+.workspacebar h2{font-size:.95rem}
+.workspacebar p{font-size:.72rem}
+.workspace-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.presets{gap:4px}
+.tag{padding:4px 7px;font-size:.69rem}
+#stage{min-height:0;min-width:0;flex:1;overflow:hidden;padding:10px}
+#canvas{max-width:100%;max-height:100%;object-fit:contain}
+#status{flex:0 0 auto;min-height:1.1em;font-size:.73rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.exportbar{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+footer{display:none}
+@media(max-width:900px){
+  :root{--header-height:58px}
+  header{padding:7px 10px;position:relative;gap:8px}
+  .brand h1{font-size:.98rem}
+  .brand p{font-size:.68rem;margin-top:1px;max-width:48vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .header-actions{gap:4px}
+  .header-actions .btn{padding:6px 7px;font-size:.72rem}
+  main{height:calc(100dvh - var(--header-height));grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(145px,34dvh) minmax(0,1fr);gap:8px;padding:8px}
+  #workspace{grid-row:1;grid-column:1;gap:4px}
+  #controls{grid-row:2;grid-column:1;gap:6px}
+  #stage{padding:5px}
+  #canvas{max-width:100%;max-height:calc(34dvh - 62px)}
+  .workspacebar{min-height:34px}
+  .workspacebar p{font-size:.66rem}
+  .workspace-actions{gap:4px;flex-wrap:nowrap}
+  .presets{display:none}
+  #downloadBtn{padding:7px 10px;font-size:.78rem;white-space:nowrap}
+  #status{font-size:.68rem}
+  #controls>.panel{padding:9px 10px}
+  .panel h2{font-size:.88rem;margin-bottom:6px}
+  label{font-size:.74rem}
+  input[type=text],input[type=number],select,textarea{padding:5px 7px;font-size:.82rem}
+  textarea{min-height:52px}
+  .grid2{gap:7px;margin:5px 0}
+  .check{margin:4px 0;font-size:.74rem}
+  .hint{font-size:.68rem}
+  .toolbar .btn{padding:6px;font-size:.72rem}
+  .settings-tab{padding:7px 2px;font-size:.74rem}
+}
+@media(max-width:480px){
+  .grid2{gap:6px}
+  .color-control{gap:5px}
+  input[type=color]{width:36px;min-width:36px;height:30px}
+  #controls>.panel{border-radius:12px}
+  .settings-tabs{gap:3px;padding:3px}
+  .settings-tab{font-size:.71rem}
+}
 </style>
 </head>
 <body>
@@ -59,6 +134,13 @@ footer{max-width:1500px;margin:0 auto;padding:0 18px 22px;color:var(--muted);fon
 </header>
 <main>
   <section id="controls" aria-label="デザイン設定">
+    <nav id="settingsTabs" class="settings-tabs" role="tablist" aria-label="編集メニュー">
+      <button class="settings-tab active" id="tab-background" type="button" role="tab" aria-selected="true" aria-controls="settings-background" data-tab="background">背景</button>
+      <button class="settings-tab" id="tab-text" type="button" role="tab" aria-selected="false" aria-controls="settings-text" data-tab="text">文字</button>
+      <button class="settings-tab" id="tab-decorate" type="button" role="tab" aria-selected="false" aria-controls="settings-decorate" data-tab="decorate">装飾</button>
+      <button class="settings-tab" id="tab-styles" type="button" role="tab" aria-selected="false" aria-controls="settings-styles" data-tab="styles">スタイル</button>
+      <button class="settings-tab" id="tab-save" type="button" role="tab" aria-selected="false" aria-controls="settings-save" data-tab="save">保存</button>
+    </nav>
     <div class="panel">
       <h2>キャンバス <span>サイズ・背景</span></h2>
       <div class="control"><label for="preset">画像サイズ</label><select id="preset">
@@ -153,14 +235,13 @@ footer{max-width:1500px;margin:0 auto;padding:0 18px 22px;color:var(--muted);fon
       <div class="exportbar">
         <div class="control"><label for="exportFormat">形式</label><select id="exportFormat"><option value="image/png">PNG（透明対応）</option><option value="image/jpeg">JPEG</option><option value="image/webp">WebP</option></select></div>
         <div class="control"><label for="exportQuality">JPEG / WebP画質</label><input type="range" id="exportQuality" min="50" max="100" value="92"><div id="exportQualityVal" class="value">92%</div></div>
-        <button class="btn primary" id="downloadBtn" type="button">画像を保存</button>
       </div>
       <div class="toolbar" style="margin-top:10px"><button class="btn" id="resetBtn" type="button">設定を初期化</button><button class="btn" id="clearSavedBtn" type="button">自動保存データを消去</button></div>
     </div>
   </section>
 
   <section id="workspace" aria-label="プレビュー">
-    <div class="workspacebar"><div><h2>ライブプレビュー</h2><p id="canvasInfo">1280 × 720 px · 設定を変えると自動更新</p></div><div class="presets"><span class="tag" id="liveTag">自動更新 ON</span><span class="tag" id="statusTag">準備完了</span></div></div>
+    <div class="workspacebar"><div><h2>ライブプレビュー</h2><p id="canvasInfo">1280 × 720 px · 設定を変えると自動更新</p></div><div class="workspace-actions"><div class="presets"><span class="tag" id="liveTag">自動更新 ON</span><span class="tag" id="statusTag">準備完了</span></div><button class="btn primary small" id="downloadBtn" type="button" disabled>画像を保存</button></div></div>
     <div id="stage"><canvas id="canvas" width="1280" height="720" aria-label="生成画像プレビュー"></canvas></div>
     <p id="status" role="status" aria-live="polite" data-kind="info">文字を編集するとプレビューが自動更新されます。</p>
   </section>
@@ -644,7 +725,46 @@ $('clearSavedBtn').addEventListener('click',()=>{
   catch(error){status('保存データを削除できませんでした。','error');}
 });
 
+function activateSettingsTab(name,focusButton=false){
+  const buttons=Array.from(document.querySelectorAll('.settings-tab'));
+  const panels=Array.from(document.querySelectorAll('#controls>.panel'));
+  const known=['background','text','decorate','styles','save'];
+  if(!known.includes(name))name='background';
+  const index=known.indexOf(name);
+  buttons.forEach((button,i)=>{
+    const active=i===index;
+    button.classList.toggle('active',active);
+    button.setAttribute('aria-selected',String(active));
+    button.tabIndex=active?0:-1;
+    if(active&&focusButton)button.focus();
+  });
+  panels.forEach((panel,i)=>{
+    panel.id='settings-'+known[i];
+    panel.setAttribute('role','tabpanel');
+    panel.setAttribute('aria-labelledby','tab-'+known[i]);
+    panel.hidden=i!==index;
+    panel.classList.toggle('active',i===index);
+  });
+}
+function initSettingsTabs(){
+  const buttons=Array.from(document.querySelectorAll('.settings-tab'));
+  buttons.forEach((button,index)=>{
+    button.addEventListener('click',()=>activateSettingsTab(button.dataset.tab));
+    button.addEventListener('keydown',event=>{
+      let next=index;
+      if(event.key==='ArrowRight')next=(index+1)%buttons.length;
+      else if(event.key==='ArrowLeft')next=(index-1+buttons.length)%buttons.length;
+      else if(event.key==='Home')next=0;
+      else if(event.key==='End')next=buttons.length-1;
+      else return;
+      event.preventDefault();
+      activateSettingsTab(buttons[next].dataset.tab,true);
+    });
+  });
+  activateSettingsTab('background');
+}
 function init(){
+  initSettingsTabs();
   const saved=safeRead(SETTINGS_KEY,null);
   applySettings(saved&&typeof saved==='object'?{...DEFAULTS,...saved}:DEFAULTS);
   lastSavedSignature=signature(readSettings());
