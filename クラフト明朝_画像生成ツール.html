@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>クラフト明朝 画像生成ツール</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background: #f5f5f5;
+  }
+  h1 {
+    font-size: 1.3em;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .section {
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    font-size: 0.9em;
+  }
+  input[type="file"] {
+    width: 100%;
+    padding: 8px 0;
+  }
+  textarea {
+    width: 100%;
+    height: 100px;
+    font-size: 1em;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    resize: vertical;
+  }
+  .row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .row > div {
+    flex: 1;
+  }
+  input[type="range"] {
+    width: 100%;
+  }
+  input[type="color"] {
+    width: 60px;
+    height: 40px;
+    border: none;
+    padding: 0;
+  }
+  .range-val {
+    text-align: center;
+    font-size: 0.85em;
+    color: #666;
+    margin-top: 4px;
+  }
+  button {
+    width: 100%;
+    padding: 14px;
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #fff;
+    background: #007aff;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  button:active { background: #0051d5; }
+  #previewWrap {
+    text-align: center;
+    overflow-x: auto;
+  }
+  canvas {
+    max-width: 100%;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+  }
+  .dl-btn {
+    margin-top: 12px;
+    background: #34c759;
+  }
+  .note {
+    font-size: 0.8em;
+    color: #666;
+    text-align: center;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<h1>クラフト明朝 画像生成ツール</h1>
+
+<div class="section">
+  <label>1. フォントファイルを選択（.otf / .ttf）</label>
+  <input type="file" id="fontFile" accept=".otf,.ttf">
+  <p class="note">craftmincho.otf を選択してください</p>
+</div>
+
+<div class="section">
+  <label>2. テキストを入力</label>
+  <textarea id="textInput" placeholder="ここに文字を入力...">クラフト明朝</textarea>
+</div>
+
+<div class="section">
+  <div class="row">
+    <div>
+      <label>文字サイズ</label>
+      <input type="range" id="fontSize" min="20" max="300" value="120">
+      <div class="range-val" id="fontSizeVal">120px</div>
+    </div>
+    <div>
+      <label>文字色</label>
+      <input type="color" id="fontColor" value="#000000">
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <label>背景色</label>
+      <input type="color" id="bgColor" value="#ffffff">
+    </div>
+    <div>
+      <label>上下余白</label>
+      <input type="range" id="paddingY" min="0" max="200" value="40">
+      <div class="range-val" id="paddingYVal">40px</div>
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <label>左右余白</label>
+      <input type="range" id="paddingX" min="0" max="200" value="40">
+      <div class="range-val" id="paddingXVal">40px</div>
+    </div>
+    <div>
+      <label>行間</label>
+      <input type="range" id="lineHeight" min="1.0" max="3.0" step="0.1" value="1.5">
+      <div class="range-val" id="lineHeightVal">1.5</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <button id="renderBtn">プレビュー生成</button>
+  <div id="previewWrap" style="display:none;">
+    <canvas id="canvas"></canvas>
+    <button class="dl-btn" id="dlBtn">画像を保存（PNG）</button>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// スライダー値表示更新
+['fontSize','paddingY','paddingX','lineHeight'].forEach(id => {
+  $(id).addEventListener('input', () => {
+    $(id+'Val').textContent = $(id).value + (id==='lineHeight' ? '' : 'px');
+  });
+});
+
+let loadedFont = null;
+
+// フォント読み込み
+$('fontFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const buf = await file.arrayBuffer();
+  loadedFont = new FontFace('CustomFont', buf);
+  await loadedFont.load();
+  document.fonts.add(loadedFont);
+  alert('フォントを読み込みました！');
+});
+
+function render() {
+  if (!loadedFont) {
+    alert('先にフォントファイルを選択してください');
+    return;
+  }
+  const text = $('textInput').value;
+  if (!text.trim()) return;
+
+  const fontSize = parseInt($('fontSize').value);
+  const color = $('fontColor').value;
+  const bg = $('bgColor').value;
+  const px = parseInt($('paddingX').value);
+  const py = parseInt($('paddingY').value);
+  const lh = parseFloat($('lineHeight').value);
+
+  const canvas = $('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // 測定用の一時設定
+  ctx.font = fontSize + 'px CustomFont';
+  const lines = text.split('\n');
+  let maxW = 0;
+  lines.forEach(line => {
+    const w = ctx.measureText(line).width;
+    if (w > maxW) maxW = w;
+  });
+
+  canvas.width = Math.ceil(maxW + px * 2);
+  canvas.height = Math.ceil(fontSize * lines.length * lh + py * 2);
+
+  // 背景
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // テキスト描画
+  ctx.fillStyle = color;
+  ctx.font = fontSize + 'px CustomFont';
+  ctx.textBaseline = 'top';
+  lines.forEach((line, i) => {
+    const y = py + fontSize * i * lh;
+    ctx.fillText(line, px, y);
+  });
+
+  $('previewWrap').style.display = 'block';
+}
+
+$('renderBtn').addEventListener('click', render);
+
+$('dlBtn').addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.download = 'craftmincho_text.png';
+  link.href = $('canvas').toDataURL('image/png');
+  link.click();
+});
+</script>
+
+</body>
+</html>
