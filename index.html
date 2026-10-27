@@ -489,7 +489,8 @@ settingElements.forEach(el=>{
     changeSettingsHandler();
   });
   el.addEventListener('change',()=>{
-    if(!editOpen)saveUndoPoint();
+    // pointerdown/keydown/beforeinput captures the pre-edit state. Do not create
+    // another history entry here: some browsers fire change after pointerup/blur.
     changeSettingsHandler();closeUndoPoint();updateUndoButtons();
   });
   el.addEventListener('pointerup',()=>{closeUndoPoint();updateUndoButtons();});
