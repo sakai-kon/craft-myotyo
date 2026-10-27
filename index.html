@@ -79,6 +79,22 @@
     margin-top: 5px;
     font-variant-numeric: tabular-nums;
   }
+  .section-title { margin: 0 0 14px; font-size: 1em; }
+  .checkline {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 10px 0 14px;
+    font-size: .95em;
+    font-weight: 600;
+  }
+  .checkline input[type="checkbox"] {
+    width: 19px;
+    height: 19px;
+    margin: 0;
+    flex: 0 0 auto;
+    accent-color: #007aff;
+  }
   button {
     width: 100%;
     min-height: 46px;
@@ -196,6 +212,36 @@
     </div>
   </section>
 
+  <section class="section" aria-labelledby="effectsHeading">
+    <h2 class="section-title" id="effectsHeading">文字の装飾</h2>
+
+    <label class="checkline" for="strokeEnabled">
+      <input type="checkbox" id="strokeEnabled">
+      縁取りを付ける
+    </label>
+    <div class="row">
+      <div>
+        <label for="strokeColor">縁取りの色</label>
+        <input type="color" id="strokeColor" value="#ffffff">
+      </div>
+      <div>
+        <label for="strokeWidth">縁取りの太さ</label>
+        <input type="range" id="strokeWidth" min="1" max="20" step="1" value="4">
+        <div class="range-val" id="strokeWidthVal">4px</div>
+      </div>
+    </div>
+
+    <label class="checkline" for="underline">
+      <input type="checkbox" id="underline">
+      下線を付ける
+    </label>
+    <label class="checkline" for="strikethrough">
+      <input type="checkbox" id="strikethrough">
+      取り消し線を付ける
+    </label>
+    <p class="note">縁取りは文字の外側に線を描きます。下線・取り消し線は各行の文字幅に合わせて描画します。</p>
+  </section>
+
   <section class="section" aria-label="プレビューと保存">
     <button type="button" id="renderBtn">プレビュー生成</button>
     <div id="previewWrap" hidden>
@@ -230,7 +276,7 @@ function markPreviewStale() {
   showStatus('設定が変更されました。「プレビュー生成」を押して画像を更新してください。');
 }
 
-['fontSize', 'paddingY', 'paddingX', 'lineHeight'].forEach(id => {
+['fontSize', 'paddingY', 'paddingX', 'lineHeight', 'strokeWidth'].forEach(id => {
   $(id).addEventListener('input', () => {
     const value = $(id).value;
     $(id + 'Val').textContent = value + (id === 'lineHeight' ? '' : 'px');
@@ -238,8 +284,11 @@ function markPreviewStale() {
   });
 });
 
-['textInput', 'fontColor', 'bgColor'].forEach(id => {
+['textInput', 'fontColor', 'bgColor', 'strokeColor'].forEach(id => {
   $(id).addEventListener('input', markPreviewStale);
+});
+['strokeEnabled', 'underline', 'strikethrough'].forEach(id => {
+  $(id).addEventListener('change', markPreviewStale);
 });
 
 $('fontFile').addEventListener('change', async event => {
@@ -292,6 +341,11 @@ function render() {
     const paddingX = Number($('paddingX').value);
     const paddingY = Number($('paddingY').value);
     const lineHeight = Number($('lineHeight').value);
+    const outlineEnabled = $('strokeEnabled').checked;
+    const outlineColor = $('strokeColor').value;
+    const outlineWidth = outlineEnabled ? Number($('strokeWidth').value) : 0;
+    const underline = $('underline').checked;
+    const strikethrough = $('strikethrough').checked;
     const lines = text.split('\n');
     const canvas = $('canvas');
     const ctx = canvas.getContext('2d');
@@ -311,7 +365,8 @@ function render() {
     const widths = lines.map(line => ctx.measureText(line).width);
     const maxWidth = Math.max(0, ...widths);
     const rowHeight = fontSize * lineHeight;
-    const edgeSpace = Math.max(2, Math.ceil(fontSize * 0.1));
+    // 縁取りが画像の端で切れないように、線幅に応じて外側の余白を確保する。
+    const edgeSpace = Math.max(2, Math.ceil(fontSize * 0.1), Math.ceil(outlineWidth + 2));
     const width = Math.ceil(maxWidth + paddingX * 2 + edgeSpace * 2);
     const height = Math.ceil(paddingY * 2 + edgeSpace * 2 + ascent + descent +
       rowHeight * (lines.length - 1));
@@ -335,11 +390,43 @@ function render() {
     ctx.font = fontSize + 'px CustomFont';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
 
     const x = paddingX + edgeSpace;
     const firstBaseline = paddingY + edgeSpace + ascent;
+    const decorationWidth = Math.max(1, fontSize / 22);
+
     lines.forEach((line, index) => {
-      ctx.fillText(line, x, firstBaseline + rowHeight * index);
+      const baseline = firstBaseline + rowHeight * index;
+
+      // 縁取りを先に描いてから塗りつぶすと、文字の中まで線が入りにくい。
+      if (outlineEnabled && outlineWidth > 0) {
+        ctx.lineWidth = outlineWidth;
+        ctx.strokeStyle = outlineColor;
+        ctx.strokeText(line, x, baseline);
+      }
+      ctx.fillStyle = color;
+      ctx.fillText(line, x, baseline);
+
+      const textWidth = ctx.measureText(line).width;
+      if (textWidth > 0 && (underline || strikethrough)) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = decorationWidth;
+        ctx.beginPath();
+
+        if (underline) {
+          const underlineY = baseline + Math.max(2, descent * 0.35);
+          ctx.moveTo(x, underlineY);
+          ctx.lineTo(x + textWidth, underlineY);
+        }
+        if (strikethrough) {
+          const strikeY = baseline - ascent * 0.36;
+          ctx.moveTo(x, strikeY);
+          ctx.lineTo(x + textWidth, strikeY);
+        }
+        ctx.stroke();
+      }
     });
 
     $('previewWrap').hidden = false;
