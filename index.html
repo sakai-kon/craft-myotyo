@@ -196,6 +196,7 @@ let backgroundImageUrl = null;
 let backgroundLoadToken = 0;
 let hasDrawn = false;
 let renderQueued = false;
+let persistTimer = null;
 let undoStack = [];
 let redoStack = [];
 let editOpen = false;
@@ -242,11 +243,17 @@ function applySettings(settings){
 function signature(settings){return JSON.stringify(settings);}
 function persistSettings(){
   if(applyingSnapshot)return;
-  const settings=readSettings();
-  const sig=signature(settings);
-  if(sig!==lastSavedSignature){
-    if(safeWrite(SETTINGS_KEY,settings))lastSavedSignature=sig;
-  }
+  // Slider drags can produce many input events; defer storage writes briefly to
+  // avoid repeatedly blocking the UI thread on mobile devices.
+  if(persistTimer!==null)clearTimeout(persistTimer);
+  persistTimer=setTimeout(()=>{
+    persistTimer=null;
+    const settings=readSettings();
+    const sig=signature(settings);
+    if(sig!==lastSavedSignature){
+      if(safeWrite(SETTINGS_KEY,settings))lastSavedSignature=sig;
+    }
+  },180);
 }
 function saveUndoPoint(){
   if(applyingSnapshot||editOpen)return;
@@ -531,6 +538,7 @@ $('fontFile').addEventListener('change',async event=>{
   }
 });
 $('clearFontBtn').addEventListener('click',()=>{
+  fontLoadToken++; // Cancel any font file that is still loading.
   if(customFont)document.fonts.delete(customFont);
   customFont=null;$('fontFile').value='';$('fontStatus').textContent='標準フォント';
   queueRender();status('標準フォントに戻しました。','success');
@@ -630,6 +638,7 @@ $('resetBtn').addEventListener('click',()=>{
   saveUndoPoint();applySettings(DEFAULTS);persistSettings();closeUndoPoint();status('設定を初期化しました。','success');
 });
 $('clearSavedBtn').addEventListener('click',()=>{
+  if(persistTimer!==null){clearTimeout(persistTimer);persistTimer=null;}
   try{localStorage.removeItem(SETTINGS_KEY);lastSavedSignature='';status('自動保存データを削除しました。スタイル保存データは残っています。','success');}
   catch(error){status('保存データを削除できませんでした。','error');}
 });
