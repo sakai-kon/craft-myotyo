@@ -2,494 +2,635 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
-<title>クラフト明朝 画像生成ツール</title>
+<meta name="theme-color" content="#f4f6fa">
+<title>クラフト明朝 Studio</title>
 <style>
-  * { box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    margin: 0;
-    padding: 20px;
-    color: #222;
-    background: #f5f5f5;
-  }
-  main { width: 100%; max-width: 760px; margin: 0 auto; }
-  h1 {
-    font-size: 1.35em;
-    line-height: 1.4;
-    margin: 4px 0 18px;
-    text-align: center;
-  }
-  .section {
-    background: #fff;
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,.05);
-  }
-  label {
-    display: block;
-    margin-bottom: 6px;
-    font-weight: 600;
-    font-size: .92em;
-  }
-  input[type="file"] {
-    display: block;
-    width: 100%;
-    max-width: 100%;
-    padding: 8px 0;
-  }
-  textarea {
-    display: block;
-    width: 100%;
-    min-height: 100px;
-    font: inherit;
-    font-size: 1em;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    resize: vertical;
-  }
-  textarea:focus, input:focus-visible, button:focus-visible {
-    outline: 3px solid rgba(0,122,255,.25);
-    outline-offset: 2px;
-  }
-  .row {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 14px;
-  }
-  .row:last-child { margin-bottom: 0; }
-  .row > div { flex: 1; min-width: 0; }
-  input[type="range"] { display: block; width: 100%; }
-  input[type="color"] {
-    width: 60px;
-    max-width: 100%;
-    height: 40px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 2px;
-    background: #fff;
-  }
-  .range-val {
-    text-align: center;
-    font-size: .85em;
-    color: #666;
-    margin-top: 5px;
-    font-variant-numeric: tabular-nums;
-  }
-  .section-title { margin: 0 0 14px; font-size: 1em; }
-  .checkline {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    margin: 10px 0 14px;
-    font-size: .95em;
-    font-weight: 600;
-  }
-  .checkline input[type="checkbox"] {
-    width: 19px;
-    height: 19px;
-    margin: 0;
-    flex: 0 0 auto;
-    accent-color: #007aff;
-  }
-  button {
-    width: 100%;
-    min-height: 46px;
-    padding: 12px 14px;
-    font: inherit;
-    font-size: 1em;
-    font-weight: 700;
-    color: #fff;
-    background: #007aff;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-  }
-  button:active:not(:disabled) { background: #0051d5; }
-  button:disabled { opacity: .55; cursor: not-allowed; }
-  #previewWrap { margin-top: 16px; }
-  #previewWrap[hidden] { display: none; }
-  #previewTitle { margin: 0 0 10px; font-size: .95em; }
-  #canvasWrap {
-    text-align: center;
-    overflow: auto;
-    padding: 2px 0;
-  }
-  canvas {
-    display: block;
-    width: auto;
-    height: auto;
-    max-width: 100%;
-    margin: 0 auto;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    background: #fff;
-  }
-  .dl-btn { margin-top: 12px; background: #248a3d; }
-  .note {
-    font-size: .82em;
-    line-height: 1.5;
-    color: #666;
-    margin: 8px 0 0;
-  }
-  .status {
-    font-size: .9em;
-    line-height: 1.5;
-    padding: 10px 12px;
-    border-radius: 8px;
-    margin: 0 0 16px;
-    background: #eef4ff;
-    color: #254b80;
-    overflow-wrap: anywhere;
-  }
-  .status[data-kind="success"] { background: #eaf7ed; color: #205b2b; }
-  .status[data-kind="error"] { background: #fff0f0; color: #9f2020; }
-  @media (max-width: 420px) {
-    body { padding: 12px; }
-    .section { padding: 14px; }
-    .row { gap: 10px; }
-    h1 { font-size: 1.2em; }
-  }
+:root{color-scheme:light;--ink:#172033;--muted:#657087;--line:#e1e6ef;--blue:#2867e8;--panel:#fff;--bg:#f4f6fa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.45}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #8db4ff;outline-offset:2px}
+button:disabled{opacity:.5;cursor:not-allowed}
+header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px clamp(14px,3vw,32px);background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.brand{min-width:0}.brand h1{font-size:1.15rem;margin:0;font-weight:800;letter-spacing:.01em}.brand p{margin:3px 0 0;color:var(--muted);font-size:.8rem}
+.header-actions{display:flex;gap:8px;align-items:center}
+.btn{border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:#fff;color:var(--ink);font-weight:650}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}.btn.danger{color:#a32a32}.btn.small{font-size:.85rem;padding:7px 9px}
+main{display:grid;grid-template-columns:minmax(300px,390px) minmax(0,1fr);gap:18px;max-width:1500px;margin:0 auto;padding:18px}
+#controls{display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:15px;box-shadow:0 3px 12px rgba(24,42,75,.035)}
+.panel h2{font-size:.98rem;margin:0 0 13px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.panel h2 span{color:var(--muted);font-size:.76rem;font-weight:500}
+label{display:block;font-size:.83rem;font-weight:700;margin-bottom:5px}
+.hint{font-size:.76rem;color:var(--muted);margin:6px 0 0}
+input[type=text],input[type=number],select,textarea{width:100%;border:1px solid #ccd4e2;border-radius:9px;padding:9px 10px;background:#fff;color:var(--ink);min-width:0}
+textarea{min-height:100px;resize:vertical;line-height:1.5}
+input[type=range]{width:100%;margin:7px 0 0;accent-color:var(--blue)}
+input[type=color]{width:46px;min-width:46px;height:36px;border:1px solid #ccd4e2;border-radius:8px;padding:2px;background:#fff}
+input[type=file]{width:100%;font-size:.82rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.control{min-width:0}.value{font-size:.76rem;color:var(--muted);text-align:right;margin-top:2px;font-variant-numeric:tabular-nums}
+.color-control{display:flex;align-items:center;gap:8px}
+.check{display:flex;align-items:center;gap:8px;margin:9px 0;font-size:.84rem;font-weight:600}
+.check input{width:17px;height:17px;accent-color:var(--blue);margin:0}
+.sep{height:1px;background:var(--line);margin:13px 0}
+.toolbar{display:flex;gap:7px;flex-wrap:wrap}.toolbar .btn{flex:1}
+#workspace{min-width:0;display:flex;flex-direction:column;gap:12px}
+.workspacebar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.workspacebar h2{font-size:1rem;margin:0}.workspacebar p{margin:2px 0 0;font-size:.78rem;color:var(--muted)}
+#stage{min-height:360px;flex:1;display:flex;align-items:center;justify-content:center;overflow:auto;padding:18px;border:1px solid var(--line);border-radius:15px;background-color:#fff;background-image:linear-gradient(45deg,#edf0f5 25%,transparent 25%),linear-gradient(-45deg,#edf0f5 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#edf0f5 75%),linear-gradient(-45deg,transparent 75%,#edf0f5 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0}
+#canvas{display:block;width:auto;height:auto;max-width:100%;max-height:75vh;box-shadow:0 8px 26px rgba(25,36,58,.15);background:transparent;flex:0 0 auto}
+#status{font-size:.82rem;color:var(--muted);margin:0;min-height:1.2em}#status[data-kind=error]{color:#b4232b}#status[data-kind=success]{color:#18713a}
+.exportbar{display:grid;grid-template-columns:minmax(120px,1fr) minmax(120px,1fr) auto;gap:9px;align-items:end}
+.presets{display:flex;gap:7px;flex-wrap:wrap}.tag{border:1px solid var(--line);border-radius:99px;background:#f9fbff;color:#35415b;padding:6px 9px;font-size:.78rem}
+footer{max-width:1500px;margin:0 auto;padding:0 18px 22px;color:var(--muted);font-size:.75rem}
+@media(max-width:900px){main{grid-template-columns:1fr;padding:12px}.panel{padding:13px}#workspace{grid-row:1}#stage{min-height:260px;padding:10px}#canvas{max-height:56vh}header{position:static}.brand p{max-width:58vw}}
+@media(max-width:480px){header{padding:12px;align-items:flex-start}.brand h1{font-size:1rem}.brand p{font-size:.72rem}.header-actions{gap:5px}.header-actions .btn{padding:8px;font-size:.78rem}main{gap:10px}.grid2{gap:9px}.exportbar{grid-template-columns:1fr 1fr}.exportbar button{grid-column:1/-1}.panel h2{font-size:.94rem}}
 </style>
 </head>
 <body>
+<header>
+  <div class="brand"><h1>クラフト明朝 Studio</h1><p>文字デザインを作って、すぐ画像に書き出す</p></div>
+  <div class="header-actions"><button class="btn small" id="undoBtn" type="button" title="元に戻す (Ctrl/Cmd+Z)" disabled>↶ 戻す</button><button class="btn small" id="redoBtn" type="button" title="やり直す (Ctrl/Cmd+Shift+Z)" disabled>↷ やり直す</button></div>
+</header>
 <main>
-  <h1>クラフト明朝 画像生成ツール</h1>
+  <section id="controls" aria-label="デザイン設定">
+    <div class="panel">
+      <h2>キャンバス <span>サイズ・背景</span></h2>
+      <div class="control"><label for="preset">画像サイズ</label><select id="preset">
+        <option value="1280x720">YouTubeサムネイル 1280×720</option>
+        <option value="1080x1080">正方形 1080×1080</option>
+        <option value="1080x1920">縦長動画 1080×1920</option>
+        <option value="1920x1080">フルHD 1920×1080</option>
+        <option value="1200x630">OGPカード 1200×630</option>
+        <option value="800x600">4:3 800×600</option>
+        <option value="custom">カスタム</option>
+      </select></div>
+      <div class="grid2">
+        <div class="control"><label for="canvasW">幅（px）</label><input type="number" id="canvasW" min="64" max="4096" value="1280"></div>
+        <div class="control"><label for="canvasH">高さ（px）</label><input type="number" id="canvasH" min="64" max="4096" value="720"></div>
+      </div>
+      <label class="check"><input type="checkbox" id="transparent">背景を透明にする</label>
+      <div class="grid2">
+        <div class="control"><label for="bgColor">背景色</label><div class="color-control"><input type="color" id="bgColor" value="#ffffff"><span class="hint">透明OFF時に使用</span></div></div>
+        <div class="control"><label for="bgImage">背景画像を読み込む</label><input type="file" id="bgImage" accept="image/*"></div>
+      </div>
+      <div class="grid2">
+        <div class="control"><label for="imageFit">背景画像の合わせ方</label><select id="imageFit"><option value="cover">全体を覆う（切り抜き）</option><option value="contain">全体を収める</option><option value="stretch">キャンバスに合わせる</option></select></div>
+        <div class="control"><label>背景画像</label><button class="btn small" id="removeImageBtn" type="button">画像を外す</button></div>
+      </div>
+    </div>
 
-  <p id="status" class="status" role="status" aria-live="polite" data-kind="info">
-    フォントファイル（.otf / .ttf）を選択してください。
-  </p>
+    <div class="panel">
+      <h2>文字 <span>テキスト・フォント</span></h2>
+      <div class="control"><label for="textInput">文字（改行対応）</label><textarea id="textInput" placeholder="ここに文字を入力">クラフト明朝</textarea></div>
+      <div class="grid2">
+        <div class="control"><label for="fontFile">フォントファイル（OTF / TTF）</label><input type="file" id="fontFile" accept=".otf,.ttf,font/otf,font/ttf,application/octet-stream"></div>
+        <div class="control"><label>現在のフォント</label><div id="fontStatus" class="hint">標準フォント</div><button class="btn small" id="clearFontBtn" type="button">カスタムフォントを解除</button></div>
+      </div>
+      <div class="grid2">
+        <div class="control"><label for="fontSize">文字サイズ</label><input type="range" id="fontSize" min="12" max="360" value="110"><div class="value" id="fontSizeVal">110 px</div></div>
+        <div class="control"><label for="fontColor">文字色</label><div class="color-control"><input type="color" id="fontColor" value="#111111"><select id="fillMode" aria-label="文字色の種類"><option value="solid">単色</option><option value="gradient">グラデーション</option></select></div></div>
+      </div>
+      <div id="gradientControls" class="grid2" hidden>
+        <div class="control"><label for="gradientStart">グラデーション開始色</label><input type="color" id="gradientStart" value="#ff4c9a"></div>
+        <div class="control"><label for="gradientEnd">グラデーション終了色</label><input type="color" id="gradientEnd" value="#6758ff"></div>
+      </div>
+      <div class="grid2">
+        <div class="control"><label for="align">文字揃え</label><select id="align"><option value="left">左揃え</option><option value="center" selected>中央揃え</option><option value="right">右揃え</option></select></div>
+        <div class="control"><label for="lineHeight">行間</label><input type="range" id="lineHeight" min="0.8" max="2.5" step="0.05" value="1.25"><div class="value" id="lineHeightVal">1.25 倍</div></div>
+      </div>
+      <div class="grid2">
+        <div class="control"><label for="letterSpacing">文字間隔</label><input type="range" id="letterSpacing" min="-8" max="30" step="1" value="0"><div class="value" id="letterSpacingVal">0 px</div></div>
+        <div class="control"><label for="rotation">回転</label><input type="range" id="rotation" min="-180" max="180" step="1" value="0"><div class="value" id="rotationVal">0°</div></div>
+      </div>
+      <div class="grid2">
+        <div><label class="check"><input type="checkbox" id="bold">太字</label><label class="check"><input type="checkbox" id="italic">斜体</label></div>
+        <div><label for="positionX">横位置</label><input type="range" id="positionX" min="0" max="100" value="50"><div class="value" id="positionXVal">50%</div><label for="positionY">縦位置</label><input type="range" id="positionY" min="0" max="100" value="50"><div class="value" id="positionYVal">50%</div></div>
+      </div>
+    </div>
 
-  <section class="section" aria-labelledby="fontHeading">
-    <label id="fontHeading" for="fontFile">1. フォントファイルを選択（.otf / .ttf）</label>
-    <input type="file" id="fontFile" accept=".otf,.ttf,font/otf,font/ttf,application/octet-stream">
-    <p class="note">craftmincho.otf など、使用したいフォントファイルを選んでください。ファイルはこのページ内で処理され、アップロードされません。</p>
+    <div class="panel">
+      <h2>文字の装飾 <span>フチ・影・線</span></h2>
+      <label class="check"><input type="checkbox" id="strokeEnabled">縁取りを付ける</label>
+      <div class="grid2">
+        <div class="control"><label for="strokeColor">縁取りの色</label><input type="color" id="strokeColor" value="#ffffff"></div>
+        <div class="control"><label for="strokeWidth">縁取りの太さ</label><input type="range" id="strokeWidth" min="1" max="30" value="5"><div class="value" id="strokeWidthVal">5 px</div></div>
+      </div>
+      <label class="check"><input type="checkbox" id="shadowEnabled">影を付ける</label>
+      <div class="grid2">
+        <div class="control"><label for="shadowColor">影の色</label><input type="color" id="shadowColor" value="#000000"></div>
+        <div class="control"><label for="shadowBlur">ぼかし</label><input type="range" id="shadowBlur" min="0" max="50" value="12"><div class="value" id="shadowBlurVal">12 px</div></div>
+      </div>
+      <div class="grid2">
+        <div class="control"><label for="shadowX">影の横距離</label><input type="range" id="shadowX" min="-40" max="40" value="4"><div class="value" id="shadowXVal">4 px</div></div>
+        <div class="control"><label for="shadowY">影の縦距離</label><input type="range" id="shadowY" min="-40" max="40" value="6"><div class="value" id="shadowYVal">6 px</div></div>
+      </div>
+      <div class="grid2">
+        <label class="check"><input type="checkbox" id="underline">下線</label>
+        <label class="check"><input type="checkbox" id="strikethrough">取り消し線</label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>スタイル保存 <span>このブラウザに保存</span></h2>
+      <div class="grid2">
+        <div class="control"><label for="styleName">スタイル名</label><input type="text" id="styleName" placeholder="例：白文字＋黒フチ" maxlength="40"></div>
+        <div class="control"><label for="savedStyles">保存済みスタイル</label><select id="savedStyles"><option value="">選択してください</option></select></div>
+      </div>
+      <div class="toolbar"><button class="btn" id="saveStyleBtn" type="button">現在のスタイルを保存</button><button class="btn" id="loadStyleBtn" type="button">読み込む</button><button class="btn danger" id="deleteStyleBtn" type="button">削除</button></div>
+      <div class="sep"></div>
+      <label for="quickStyle">クイックスタイル</label><select id="quickStyle"><option value="">スタイルを選ぶ…</option><option value="whiteBlack">白文字＋黒フチ</option><option value="blackWhite">黒文字＋白フチ</option><option value="neon">ネオン風</option><option value="gradient">ピンク〜紫グラデーション</option><option value="shadow">影付き文字</option></select>
+      <p class="hint">設定はブラウザ内に保存されます。フォントファイルと背景画像は再訪問時に再選択してください。</p>
+    </div>
+
+    <div class="panel">
+      <h2>保存・リセット</h2>
+      <div class="exportbar">
+        <div class="control"><label for="exportFormat">形式</label><select id="exportFormat"><option value="image/png">PNG（透明対応）</option><option value="image/jpeg">JPEG</option><option value="image/webp">WebP</option></select></div>
+        <div class="control"><label for="exportQuality">JPEG / WebP画質</label><input type="range" id="exportQuality" min="50" max="100" value="92"><div id="exportQualityVal" class="value">92%</div></div>
+        <button class="btn primary" id="downloadBtn" type="button">画像を保存</button>
+      </div>
+      <div class="toolbar" style="margin-top:10px"><button class="btn" id="resetBtn" type="button">設定を初期化</button><button class="btn" id="clearSavedBtn" type="button">自動保存データを消去</button></div>
+    </div>
   </section>
 
-  <section class="section" aria-labelledby="textHeading">
-    <label id="textHeading" for="textInput">2. テキストを入力</label>
-    <textarea id="textInput" placeholder="ここに文字を入力..." spellcheck="false">クラフト明朝</textarea>
-  </section>
-
-  <section class="section" aria-label="画像設定">
-    <div class="row">
-      <div>
-        <label for="fontSize">文字サイズ</label>
-        <input type="range" id="fontSize" min="20" max="300" value="120">
-        <div class="range-val" id="fontSizeVal">120px</div>
-      </div>
-      <div>
-        <label for="fontColor">文字色</label>
-        <input type="color" id="fontColor" value="#000000">
-      </div>
-    </div>
-    <div class="row">
-      <div>
-        <label for="bgColor">背景色</label>
-        <input type="color" id="bgColor" value="#ffffff">
-      </div>
-      <div>
-        <label for="paddingY">上下余白</label>
-        <input type="range" id="paddingY" min="0" max="200" value="40">
-        <div class="range-val" id="paddingYVal">40px</div>
-      </div>
-    </div>
-    <div class="row">
-      <div>
-        <label for="paddingX">左右余白</label>
-        <input type="range" id="paddingX" min="0" max="200" value="40">
-        <div class="range-val" id="paddingXVal">40px</div>
-      </div>
-      <div>
-        <label for="lineHeight">行間</label>
-        <input type="range" id="lineHeight" min="1.0" max="3.0" step="0.1" value="1.5">
-        <div class="range-val" id="lineHeightVal">1.5</div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section" aria-labelledby="effectsHeading">
-    <h2 class="section-title" id="effectsHeading">文字の装飾</h2>
-
-    <label class="checkline" for="strokeEnabled">
-      <input type="checkbox" id="strokeEnabled">
-      縁取りを付ける
-    </label>
-    <div class="row">
-      <div>
-        <label for="strokeColor">縁取りの色</label>
-        <input type="color" id="strokeColor" value="#ffffff">
-      </div>
-      <div>
-        <label for="strokeWidth">縁取りの太さ</label>
-        <input type="range" id="strokeWidth" min="1" max="20" step="1" value="4">
-        <div class="range-val" id="strokeWidthVal">4px</div>
-      </div>
-    </div>
-
-    <label class="checkline" for="underline">
-      <input type="checkbox" id="underline">
-      下線を付ける
-    </label>
-    <label class="checkline" for="strikethrough">
-      <input type="checkbox" id="strikethrough">
-      取り消し線を付ける
-    </label>
-    <p class="note">縁取りは文字の外側に線を描きます。下線・取り消し線は各行の文字幅に合わせて描画します。</p>
-  </section>
-
-  <section class="section" aria-label="プレビューと保存">
-    <button type="button" id="renderBtn">プレビュー生成</button>
-    <div id="previewWrap" hidden>
-      <h2 id="previewTitle">プレビュー</h2>
-      <div id="canvasWrap"><canvas id="canvas"></canvas></div>
-      <button type="button" class="dl-btn" id="dlBtn" disabled>画像を保存（PNG）</button>
-      <p class="note">設定を変更したら、もう一度「プレビュー生成」を押してください。</p>
-    </div>
+  <section id="workspace" aria-label="プレビュー">
+    <div class="workspacebar"><div><h2>ライブプレビュー</h2><p id="canvasInfo">1280 × 720 px · 設定を変えると自動更新</p></div><div class="presets"><span class="tag" id="liveTag">自動更新 ON</span><span class="tag" id="statusTag">準備完了</span></div></div>
+    <div id="stage"><canvas id="canvas" width="1280" height="720" aria-label="生成画像プレビュー"></canvas></div>
+    <p id="status" role="status" aria-live="polite" data-kind="info">文字を編集するとプレビューが自動更新されます。</p>
   </section>
 </main>
+<footer>画像はブラウザ内で生成します。フォント・背景画像を外部サーバーへアップロードしません。大きな画像では端末のメモリ使用量が増える場合があります。</footer>
 
 <script>
 'use strict';
-
 const $ = id => document.getElementById(id);
-const MAX_CANVAS_DIMENSION = 16384;
-const MAX_CANVAS_PIXELS = 16000000;
+const SETTINGS_KEY = 'craftMyotyoStudio.settings.v2';
+const STYLES_KEY = 'craftMyotyoStudio.styles.v2';
+const MAX_DIMENSION = 4096;
+const MAX_PIXELS = 12000000;
+const DEFAULTS = {
+  preset:'1280x720',canvasW:'1280',canvasH:'720',transparent:false,bgColor:'#ffffff',imageFit:'cover',
+  textInput:'クラフト明朝',fontSize:'110',fontColor:'#111111',fillMode:'solid',gradientStart:'#ff4c9a',gradientEnd:'#6758ff',
+  align:'center',lineHeight:'1.25',letterSpacing:'0',rotation:'0',bold:false,italic:false,positionX:'50',positionY:'50',
+  strokeEnabled:false,strokeColor:'#ffffff',strokeWidth:'5',shadowEnabled:false,shadowColor:'#000000',shadowBlur:'12',shadowX:'4',shadowY:'6',
+  underline:false,strikethrough:false,exportFormat:'image/png',exportQuality:'92'
+};
+const CONTROL_IDS = Object.keys(DEFAULTS);
+const RANGE_LABELS = {
+  fontSize:['fontSizeVal',v=>v+' px'],lineHeight:['lineHeightVal',v=>Number(v).toFixed(2)+' 倍'],
+  letterSpacing:['letterSpacingVal',v=>v+' px'],rotation:['rotationVal',v=>v+'°'],
+  positionX:['positionXVal',v=>v+'%'],positionY:['positionYVal',v=>v+'%'],
+  strokeWidth:['strokeWidthVal',v=>v+' px'],shadowBlur:['shadowBlurVal',v=>v+' px'],
+  shadowX:['shadowXVal',v=>v+' px'],shadowY:['shadowYVal',v=>v+' px'],exportQuality:['exportQualityVal',v=>v+'%']
+};
+let customFont = null;
+let backgroundImage = null;
+let backgroundImageUrl = null;
+let hasDrawn = false;
+let renderQueued = false;
+let undoStack = [];
+let redoStack = [];
+let editOpen = false;
+let applyingSnapshot = false;
+let lastSavedSignature = '';
+const canvas = $('canvas');
+const ctx = canvas.getContext('2d');
 
-let loadedFont = null;
-let hasPreview = false;
-
-function showStatus(message, kind = 'info') {
-  const status = $('status');
-  status.textContent = message;
-  status.dataset.kind = kind;
+function status(message,kind='info'){
+  $('status').textContent=message;
+  $('status').dataset.kind=kind;
+  $('statusTag').textContent=kind==='error'?'要確認':kind==='success'?'更新済み':'編集中';
 }
-
-function markPreviewStale() {
-  if (!hasPreview) return;
-  hasPreview = false;
-  $('dlBtn').disabled = true;
-  showStatus('設定が変更されました。「プレビュー生成」を押して画像を更新してください。');
+function safeRead(key,fallback){
+  try{const value=localStorage.getItem(key);return value===null?fallback:JSON.parse(value);}catch(error){console.warn('Local storage read failed',error);return fallback;}
 }
-
-['fontSize', 'paddingY', 'paddingX', 'lineHeight', 'strokeWidth'].forEach(id => {
-  $(id).addEventListener('input', () => {
-    const value = $(id).value;
-    $(id + 'Val').textContent = value + (id === 'lineHeight' ? '' : 'px');
-    markPreviewStale();
+function safeWrite(key,value){
+  try{localStorage.setItem(key,JSON.stringify(value));return true;}catch(error){console.warn('Local storage write failed',error);status('ブラウザの保存領域が使えません。設定はこのタブを閉じると失われる場合があります。','error');return false;}
+}
+function readSettings(){
+  const out={};
+  CONTROL_IDS.forEach(id=>{
+    const el=$(id);
+    if(!el)return;
+    out[id]=el.type==='checkbox'?el.checked:el.value;
   });
-});
-
-['textInput', 'fontColor', 'bgColor', 'strokeColor'].forEach(id => {
-  $(id).addEventListener('input', markPreviewStale);
-});
-['strokeEnabled', 'underline', 'strikethrough'].forEach(id => {
-  $(id).addEventListener('change', markPreviewStale);
-});
-
-$('fontFile').addEventListener('change', async event => {
-  const file = event.target.files && event.target.files[0];
-  if (!file) return;
-
-  $('fontFile').disabled = true;
-  $('renderBtn').disabled = true;
-  showStatus(file.name + ' を読み込んでいます…');
-
-  try {
-    const buffer = await file.arrayBuffer();
-    const candidate = new FontFace('CustomFont', buffer);
-    await candidate.load();
-
-    // 成功するまでは現在のフォントを置き換えず、失敗時に利用不能になるのを防ぐ。
-    if (loadedFont) document.fonts.delete(loadedFont);
-    document.fonts.add(candidate);
-    loadedFont = candidate;
-    markPreviewStale();
-    showStatus('フォントを読み込みました：' + file.name, 'success');
-  } catch (error) {
-    console.error('Font loading failed:', error);
-    showStatus('フォントを読み込めませんでした。OTF / TTF形式のファイルか確認してください。' +
-      (loadedFont ? ' 前に読み込んだフォントは引き続き使えます。' : ''), 'error');
-  } finally {
-    $('fontFile').disabled = false;
-    $('renderBtn').disabled = false;
+  return out;
+}
+function applySettings(settings){
+  applyingSnapshot=true;
+  CONTROL_IDS.forEach(id=>{
+    const el=$(id);
+    if(!el || !Object.prototype.hasOwnProperty.call(settings,id))return;
+    if(el.type==='checkbox')el.checked=Boolean(settings[id]);
+    else el.value=String(settings[id]);
+  });
+  if(!Array.from($('preset').options).some(o=>o.value===$('preset').value))$('preset').value='custom';
+  syncDimensionInputs();
+  updateLabels();
+  updateConditionalControls();
+  applyingSnapshot=false;
+  queueRender();
+}
+function signature(settings){return JSON.stringify(settings);}
+function persistSettings(){
+  if(applyingSnapshot)return;
+  const settings=readSettings();
+  const sig=signature(settings);
+  if(sig!==lastSavedSignature){
+    if(safeWrite(SETTINGS_KEY,settings))lastSavedSignature=sig;
   }
-});
-
-function render() {
-  if (!loadedFont) {
-    showStatus('先にフォントファイルを選択してください。', 'error');
-    $('fontFile').focus();
-    return;
+}
+function saveUndoPoint(){
+  if(applyingSnapshot||editOpen)return;
+  undoStack.push(readSettings());
+  if(undoStack.length>60)undoStack.shift();
+  redoStack=[];
+  editOpen=true;
+  updateUndoButtons();
+}
+function closeUndoPoint(){editOpen=false;}
+function updateUndoButtons(){
+  $('undoBtn').disabled=undoStack.length===0;
+  $('redoBtn').disabled=redoStack.length===0;
+}
+function undo(){
+  if(undoStack.length===0)return;
+  redoStack.push(readSettings());
+  const previous=undoStack.pop();
+  closeUndoPoint();
+  updateUndoButtons();
+  applySettings(previous);
+  persistSettings();
+  status('操作を元に戻しました。','success');
+}
+function redo(){
+  if(redoStack.length===0)return;
+  undoStack.push(readSettings());
+  const next=redoStack.pop();
+  closeUndoPoint();
+  updateUndoButtons();
+  applySettings(next);
+  persistSettings();
+  status('操作をやり直しました。','success');
+}
+function updateLabels(){
+  Object.entries(RANGE_LABELS).forEach(([id,item])=>{
+    const el=$(id);
+    if(el)$(item[0]).textContent=item[1](el.value);
+  });
+  $('canvasInfo').textContent=canvas.width+' × '+canvas.height+' px · 設定を変えると自動更新';
+}
+function syncDimensionInputs(){
+  const custom=$('preset').value==='custom';
+  $('canvasW').disabled=!custom;
+  $('canvasH').disabled=!custom;
+  if(!custom){
+    const parts=$('preset').value.split('x');
+    $('canvasW').value=parts[0];
+    $('canvasH').value=parts[1];
   }
-
-  const text = $('textInput').value;
-  if (!text.trim()) {
-    showStatus('画像にするテキストを入力してください。', 'error');
-    $('textInput').focus();
-    return;
+}
+function updateConditionalControls(){
+  $('gradientControls').hidden=$('fillMode').value!=='gradient';
+}
+function queueRender(){
+  if(renderQueued)return;
+  renderQueued=true;
+  requestAnimationFrame(()=>{
+    renderQueued=false;
+    render();
+  });
+}
+function fontSpec(){
+  const style=$('italic').checked?'italic ':'';
+  const weight=$('bold').checked?'700 ':'400 ';
+  return style+weight+Number($('fontSize').value)+'px '+(customFont?'"StudioUploadedFont"':'system-ui, sans-serif');
+}
+function splitGlyphs(text){
+  if(typeof Intl!=='undefined'&&Intl.Segmenter){
+    const segmenter=new Intl.Segmenter('ja',{granularity:'grapheme'});
+    return Array.from(segmenter.segment(text),entry=>entry.segment);
   }
+  return Array.from(text);
+}
+function measureSpaced(text,spacing){
+  const glyphs=splitGlyphs(text);
+  if(!glyphs.length)return 0;
+  let width=0;
+  glyphs.forEach(g=>{width+=ctx.measureText(g).width;});
+  return width+spacing*(glyphs.length-1);
+}
+function drawSpacedText(text,x,y,spacing,stroke){
+  const glyphs=splitGlyphs(text);
+  let cursor=x;
+  glyphs.forEach(glyph=>{
+    if(stroke)ctx.strokeText(glyph,cursor,y);
+    else ctx.fillText(glyph,cursor,y);
+    cursor+=ctx.measureText(glyph).width+spacing;
+  });
+}
+function drawBackground(width,height){
+  if(!$('transparent').checked){
+    ctx.fillStyle=$('bgColor').value;
+    ctx.fillRect(0,0,width,height);
+  }
+  if(!backgroundImage)return;
+  const iw=backgroundImage.naturalWidth||backgroundImage.width;
+  const ih=backgroundImage.naturalHeight||backgroundImage.height;
+  if(!iw||!ih)return;
+  const mode=$('imageFit').value;
+  if(mode==='stretch'){ctx.drawImage(backgroundImage,0,0,width,height);return;}
+  const scale=mode==='contain'?Math.min(width/iw,height/ih):Math.max(width/iw,height/ih);
+  const w=iw*scale,h=ih*scale;
+  ctx.drawImage(backgroundImage,(width-w)/2,(height-h)/2,w,h);
+}
+function render(){
+  if(!ctx){status('Canvasを利用できないブラウザです。','error');return;}
+  const width=Number($('canvasW').value),height=Number($('canvasH').value);
+  if(!Number.isInteger(width)||!Number.isInteger(height)||width<64||height<64||width>MAX_DIMENSION||height>MAX_DIMENSION||width*height>MAX_PIXELS){
+    status('キャンバスのサイズが無効か大きすぎます。幅・高さを64〜4096px、合計1200万画素以内にしてください。','error');
+    hasDrawn=false;$('downloadBtn').disabled=true;return;
+  }
+  const text=$('textInput').value;
+  canvas.width=width;canvas.height=height;
+  ctx.clearRect(0,0,width,height);
+  drawBackground(width,height);
+  if(text.length===0){
+    $('downloadBtn').disabled=false;hasDrawn=true;updateLabels();status('文字が空なので、背景だけをプレビューしています。');return;
+  }
+  try{
+    ctx.save();
+    ctx.font=fontSpec();
+    ctx.textBaseline='alphabetic';
+    ctx.textAlign='left';
+    ctx.lineJoin='round';
+    ctx.lineCap='round';
+    const fontSize=Number($('fontSize').value);
+    const spacing=Number($('letterSpacing').value);
+    const lines=text.split('\n');
+    const lineWidths=lines.map(line=>measureSpaced(line,spacing));
+    const maxLineWidth=Math.max(0,...lineWidths);
+    const ascent=Math.max(fontSize*.8,...lines.map(line=>{
+      const m=ctx.measureText(line||'国Ag');
+      return Number.isFinite(m.actualBoundingBoxAscent)?m.actualBoundingBoxAscent:fontSize*.8;
+    }));
+    const descent=Math.max(fontSize*.2,...lines.map(line=>{
+      const m=ctx.measureText(line||'国Ag');
+      return Number.isFinite(m.actualBoundingBoxDescent)?m.actualBoundingBoxDescent:fontSize*.2;
+    }));
+    const lineGap=fontSize*Number($('lineHeight').value);
+    const totalHeight=ascent+descent+lineGap*Math.max(0,lines.length-1);
+    const anchorX=width*Number($('positionX').value)/100;
+    const anchorY=height*Number($('positionY').value)/100;
+    const angle=Number($('rotation').value)*Math.PI/180;
+    ctx.translate(anchorX,anchorY);
+    ctx.rotate(angle);
+    const leftBase=$('align').value;
+    const strokeEnabled=$('strokeEnabled').checked;
+    const strokeWidth=Number($('strokeWidth').value);
+    const shadowEnabled=$('shadowEnabled').checked;
+    const shadowBlur=Number($('shadowBlur').value);
+    const shadowX=Number($('shadowX').value);
+    const shadowY=Number($('shadowY').value);
+    const decoration=$('underline').checked||$('strikethrough').checked;
+    const fillMode=$('fillMode').value;
+    let gradient=null;
+    if(fillMode==='gradient'){
+      const gradLeft=-Math.max(1,maxLineWidth/2);
+      gradient=ctx.createLinearGradient(gradLeft,0,Math.max(1,maxLineWidth/2),0);
+      gradient.addColorStop(0,$('gradientStart').value);
+      gradient.addColorStop(1,$('gradientEnd').value);
+    }else gradient=$('fontColor').value;
 
-  try {
-    const fontSize = Number($('fontSize').value);
-    const color = $('fontColor').value;
-    const bg = $('bgColor').value;
-    const paddingX = Number($('paddingX').value);
-    const paddingY = Number($('paddingY').value);
-    const lineHeight = Number($('lineHeight').value);
-    const outlineEnabled = $('strokeEnabled').checked;
-    const outlineColor = $('strokeColor').value;
-    const outlineWidth = outlineEnabled ? Number($('strokeWidth').value) : 0;
-    const underline = $('underline').checked;
-    const strikethrough = $('strikethrough').checked;
-    const lines = text.split('\n');
-    const canvas = $('canvas');
-    const ctx = canvas.getContext('2d');
-
-    if (!ctx) throw new Error('Canvas 2D context is unavailable.');
-
-    ctx.font = fontSize + 'px CustomFont';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic';
-
-    // 空行にも文字行と同じ高さを確保し、フォントごとの上下のはみ出しを測る。
-    const metrics = lines.map(line => ctx.measureText(line || '国Ag'));
-    const ascent = Math.max(fontSize * 0.8, ...metrics.map(m =>
-      Number.isFinite(m.actualBoundingBoxAscent) ? m.actualBoundingBoxAscent : fontSize * 0.8));
-    const descent = Math.max(fontSize * 0.2, ...metrics.map(m =>
-      Number.isFinite(m.actualBoundingBoxDescent) ? m.actualBoundingBoxDescent : fontSize * 0.2));
-    const widths = lines.map(line => ctx.measureText(line).width);
-    const maxWidth = Math.max(0, ...widths);
-    const rowHeight = fontSize * lineHeight;
-    // 縁取りが画像の端で切れないように、線幅に応じて外側の余白を確保する。
-    const edgeSpace = Math.max(2, Math.ceil(fontSize * 0.1), Math.ceil(outlineWidth + 2));
-    const width = Math.ceil(maxWidth + paddingX * 2 + edgeSpace * 2);
-    const height = Math.ceil(paddingY * 2 + edgeSpace * 2 + ascent + descent +
-      rowHeight * (lines.length - 1));
-
-    // ブラウザやスマートフォンのメモリ不足を避けるため、極端に大きな画像は生成しない。
-    if (!Number.isFinite(width) || !Number.isFinite(height) ||
-        width < 1 || height < 1 ||
-        width > MAX_CANVAS_DIMENSION || height > MAX_CANVAS_DIMENSION ||
-        width * height > MAX_CANVAS_PIXELS) {
-      showStatus('画像サイズが大きすぎます。文字数・文字サイズ・余白を減らして再試行してください。', 'error');
-      return;
-    }
-
-    canvas.width = width;
-    canvas.height = height;
-
-    // canvasの幅・高さを変更すると描画設定がリセットされるため、ここで再設定する。
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = color;
-    ctx.font = fontSize + 'px CustomFont';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic';
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-
-    const x = paddingX + edgeSpace;
-    const firstBaseline = paddingY + edgeSpace + ascent;
-    const decorationWidth = Math.max(1, fontSize / 22);
-
-    lines.forEach((line, index) => {
-      const baseline = firstBaseline + rowHeight * index;
-
-      // 縁取りを先に描いてから塗りつぶすと、文字の中まで線が入りにくい。
-      if (outlineEnabled && outlineWidth > 0) {
-        ctx.lineWidth = outlineWidth;
-        ctx.strokeStyle = outlineColor;
-        ctx.strokeText(line, x, baseline);
+    // Draw shadow on a separate pass, then outline, then the fill.
+    const lineYStart=-totalHeight/2+ascent;
+    lines.forEach((line,index)=>{
+      const lineWidth=lineWidths[index];
+      let lineX=leftBase==='left'?0:leftBase==='center'?-lineWidth/2:-lineWidth;
+      const y=lineYStart+index*lineGap;
+      if(shadowEnabled){
+        ctx.save();
+        ctx.shadowColor=$('shadowColor').value;
+        ctx.shadowBlur=shadowBlur;
+        ctx.shadowOffsetX=shadowX;
+        ctx.shadowOffsetY=shadowY;
+        ctx.fillStyle=$('shadowColor').value;
+        drawSpacedText(line,lineX,y,spacing,false);
+        ctx.restore();
       }
-      ctx.fillStyle = color;
-      ctx.fillText(line, x, baseline);
-
-      const textWidth = ctx.measureText(line).width;
-      if (textWidth > 0 && (underline || strikethrough)) {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = decorationWidth;
+      if(strokeEnabled){
+        ctx.lineWidth=strokeWidth*2;
+        ctx.strokeStyle=$('strokeColor').value;
+        drawSpacedText(line,lineX,y,spacing,true);
+      }
+      ctx.fillStyle=gradient;
+      drawSpacedText(line,lineX,y,spacing,false);
+      if(lineWidth>0&&decoration){
+        ctx.save();
+        ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetX=0;ctx.shadowOffsetY=0;
+        ctx.strokeStyle=$('fontColor').value;
+        if(fillMode==='gradient')ctx.strokeStyle=$('gradientEnd').value;
+        ctx.lineWidth=Math.max(1,fontSize/24);
         ctx.beginPath();
-
-        if (underline) {
-          const underlineY = baseline + Math.max(2, descent * 0.35);
-          ctx.moveTo(x, underlineY);
-          ctx.lineTo(x + textWidth, underlineY);
+        if($('underline').checked){
+          const uy=y+Math.max(2,descent*.35);
+          ctx.moveTo(lineX,uy);ctx.lineTo(lineX+lineWidth,uy);
         }
-        if (strikethrough) {
-          const strikeY = baseline - ascent * 0.36;
-          ctx.moveTo(x, strikeY);
-          ctx.lineTo(x + textWidth, strikeY);
+        if($('strikethrough').checked){
+          const sy=y-ascent*.36;
+          ctx.moveTo(lineX,sy);ctx.lineTo(lineX+lineWidth,sy);
         }
-        ctx.stroke();
+        ctx.stroke();ctx.restore();
       }
     });
-
-    $('previewWrap').hidden = false;
-    $('dlBtn').disabled = false;
-    hasPreview = true;
-    showStatus('プレビューを生成しました。内容を確認してPNGで保存できます。', 'success');
-  } catch (error) {
-    console.error('Image rendering failed:', error);
-    hasPreview = false;
-    $('dlBtn').disabled = true;
-    showStatus('画像を生成できませんでした。文字数や画像サイズを減らして、もう一度お試しください。', 'error');
+    ctx.restore();
+    hasDrawn=true;
+    $('downloadBtn').disabled=false;
+    updateLabels();
+    status('プレビューを更新しました。','success');
+  }catch(error){
+    console.error('Render failed:',error);
+    try{ctx.restore();}catch(_){}
+    hasDrawn=false;$('downloadBtn').disabled=true;
+    status('描画に失敗しました。文字数やサイズを減らして再試行してください。','error');
   }
 }
-
-$('renderBtn').addEventListener('click', render);
-
-$('dlBtn').addEventListener('click', () => {
-  if (!hasPreview) {
-    showStatus('先にプレビューを生成してください。', 'error');
-    return;
-  }
-
-  const canvas = $('canvas');
-  const button = $('dlBtn');
-  button.disabled = true;
-  showStatus('PNG画像を準備しています…');
-
-  try {
-    if (typeof canvas.toBlob !== 'function') {
-      const dataUrl = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.download = 'craftmincho_text.png';
-      link.href = dataUrl;
-      link.click();
-      button.disabled = false;
-      showStatus('PNG画像の保存を開始しました。', 'success');
-      return;
-    }
-
-    canvas.toBlob(blob => {
-      if (!blob) {
-        button.disabled = false;
-        showStatus('PNG画像を書き出せませんでした。もう一度お試しください。', 'error');
-        return;
-      }
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.download = 'craftmincho_text.png';
-      link.href = url;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      button.disabled = false;
-      showStatus('PNG画像の保存を開始しました。', 'success');
-    }, 'image/png');
-  } catch (error) {
-    console.error('PNG export failed:', error);
-    button.disabled = false;
-    showStatus('PNG画像を書き出せませんでした。このブラウザでの保存に対応していない可能性があります。', 'error');
+function changeSettingsHandler(){
+  updateLabels();updateConditionalControls();syncDimensionInputs();persistSettings();queueRender();
+}
+const settingElements=CONTROL_IDS.map(id=>$(id)).filter(Boolean);
+settingElements.forEach(el=>{
+  el.addEventListener('pointerdown',saveUndoPoint);
+  el.addEventListener('keydown',event=>{
+    if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' ','Enter','Backspace','Delete'].includes(event.key))saveUndoPoint();
+  });
+  if(el.tagName==='TEXTAREA'||el.type==='text'||el.type==='number')el.addEventListener('beforeinput',saveUndoPoint);
+  el.addEventListener('input',()=>{
+    if(!editOpen)saveUndoPoint();
+    changeSettingsHandler();
+  });
+  el.addEventListener('change',()=>{
+    if(!editOpen)saveUndoPoint();
+    changeSettingsHandler();closeUndoPoint();updateUndoButtons();
+  });
+  el.addEventListener('pointerup',()=>{closeUndoPoint();updateUndoButtons();});
+  el.addEventListener('blur',()=>{closeUndoPoint();updateUndoButtons();});
+});
+$('preset').addEventListener('change',()=>{
+  syncDimensionInputs();changeSettingsHandler();closeUndoPoint();
+});
+$('canvasW').addEventListener('input',()=>{
+  $('preset').value='custom';syncDimensionInputs();changeSettingsHandler();
+});
+$('canvasH').addEventListener('input',()=>{
+  $('preset').value='custom';syncDimensionInputs();changeSettingsHandler();
+});
+$('undoBtn').addEventListener('click',undo);
+$('redoBtn').addEventListener('click',redo);
+document.addEventListener('keydown',event=>{
+  const command=event.ctrlKey||event.metaKey;
+  if(command&&event.key.toLowerCase()==='z'){
+    event.preventDefault();
+    if(event.shiftKey)redo();else undo();
+  }else if(command&&event.key.toLowerCase()==='y'){
+    event.preventDefault();redo();
   }
 });
+
+$('fontFile').addEventListener('change',async event=>{
+  const file=event.target.files&&event.target.files[0];if(!file)return;
+  const oldText=$('fontStatus').textContent;
+  $('fontStatus').textContent='読み込み中…';
+  try{
+    const bytes=await file.arrayBuffer();
+    const candidate=new FontFace('StudioUploadedFont',bytes);
+    await candidate.load();
+    if(customFont)document.fonts.delete(customFont);
+    document.fonts.add(candidate);customFont=candidate;
+    $('fontStatus').textContent=file.name;
+    queueRender();status('フォントを読み込みました。','success');
+  }catch(error){
+    console.error('Font loading failed:',error);
+    $('fontStatus').textContent=oldText;
+    status('フォントを読み込めませんでした。OTF / TTF形式か確認してください。','error');
+  }
+});
+$('clearFontBtn').addEventListener('click',()=>{
+  if(customFont)document.fonts.delete(customFont);
+  customFont=null;$('fontFile').value='';$('fontStatus').textContent='標準フォント';
+  queueRender();status('標準フォントに戻しました。','success');
+});
+$('bgImage').addEventListener('change',event=>{
+  const file=event.target.files&&event.target.files[0];if(!file)return;
+  if(!file.type.startsWith('image/')){status('画像ファイルを選んでください。','error');return;}
+  const url=URL.createObjectURL(file);
+  const image=new Image();
+  image.onload=()=>{
+    if(backgroundImageUrl)URL.revokeObjectURL(backgroundImageUrl);
+    backgroundImage=image;backgroundImageUrl=url;queueRender();status('背景画像を読み込みました。','success');
+  };
+  image.onerror=()=>{
+    URL.revokeObjectURL(url);status('背景画像を開けませんでした。別の画像を選んでください。','error');
+  };
+  image.src=url;
+});
+$('removeImageBtn').addEventListener('click',()=>{
+  backgroundImage=null;if(backgroundImageUrl)URL.revokeObjectURL(backgroundImageUrl);
+  backgroundImageUrl=null;$('bgImage').value='';queueRender();status('背景画像を外しました。','success');
+});
+$('saveStyleBtn').addEventListener('click',()=>{
+  const name=$('styleName').value.trim();
+  if(!name){status('保存するスタイル名を入力してください。','error');$('styleName').focus();return;}
+  const styles=safeRead(STYLES_KEY,{});
+  styles[name]=readSettings();
+  if(safeWrite(STYLES_KEY,styles)){refreshSavedStyles(name);status('「'+name+'」を保存しました。','success');}
+});
+function refreshSavedStyles(selectName=''){
+  const styles=safeRead(STYLES_KEY,{});
+  const select=$('savedStyles');select.replaceChildren(new Option('選択してください',''));
+  Object.keys(styles).sort((a,b)=>a.localeCompare(b,'ja')).forEach(name=>select.add(new Option(name,name)));
+  if(selectName&&Object.prototype.hasOwnProperty.call(styles,selectName))select.value=selectName;
+}
+$('loadStyleBtn').addEventListener('click',()=>{
+  const name=$('savedStyles').value;const styles=safeRead(STYLES_KEY,{});
+  if(!name||!styles[name]){status('読み込むスタイルを選んでください。','error');return;}
+  saveUndoPoint();applySettings(styles[name]);persistSettings();closeUndoPoint();status('「'+name+'」を読み込みました。','success');
+});
+$('deleteStyleBtn').addEventListener('click',()=>{
+  const name=$('savedStyles').value;const styles=safeRead(STYLES_KEY,{});
+  if(!name||!styles[name]){status('削除するスタイルを選んでください。','error');return;}
+  delete styles[name];safeWrite(STYLES_KEY,styles);refreshSavedStyles();status('「'+name+'」を削除しました。','success');
+});
+$('quickStyle').addEventListener('change',()=>{
+  const key=$('quickStyle').value;if(!key)return;
+  saveUndoPoint();
+  const presets={
+    whiteBlack:{fontColor:'#ffffff',strokeEnabled:true,strokeColor:'#111111',strokeWidth:'7',shadowEnabled:true,shadowBlur:'4',shadowX:'2',shadowY:'3',fillMode:'solid'},
+    blackWhite:{fontColor:'#111111',strokeEnabled:true,strokeColor:'#ffffff',strokeWidth:'8',shadowEnabled:false,fillMode:'solid'},
+    neon:{fontColor:'#ffffff',strokeEnabled:true,strokeColor:'#ff2bd6',strokeWidth:'5',shadowEnabled:true,shadowColor:'#7e22ce',shadowBlur:'30',shadowX:'0',shadowY:'0',fillMode:'solid'},
+    gradient:{fillMode:'gradient',gradientStart:'#ff4c9a',gradientEnd:'#6758ff',strokeEnabled:true,strokeColor:'#ffffff',strokeWidth:'3'},
+    shadow:{fontColor:'#222222',strokeEnabled:false,shadowEnabled:true,shadowColor:'#000000',shadowBlur:'18',shadowX:'7',shadowY:'8',fillMode:'solid'}
+  };
+  applySettings({...readSettings(),...presets[key]});persistSettings();closeUndoPoint();$('quickStyle').value='';status('クイックスタイルを適用しました。','success');
+});
+$('downloadBtn').addEventListener('click',()=>{
+  if(!hasDrawn){status('有効なプレビューを生成してから保存してください。','error');return;}
+  const format=$('exportFormat').value;
+  const quality=Number($('exportQuality').value)/100;
+  $('downloadBtn').disabled=true;status('画像を書き出しています…');
+  try{
+    let exportCanvas=canvas;
+    if(format==='image/jpeg'&&$('transparent').checked){
+      exportCanvas=document.createElement('canvas');exportCanvas.width=canvas.width;exportCanvas.height=canvas.height;
+      const exportCtx=exportCanvas.getContext('2d');
+      exportCtx.fillStyle=$('bgColor').value||'#ffffff';exportCtx.fillRect(0,0,exportCanvas.width,exportCanvas.height);
+      exportCtx.drawImage(canvas,0,0);
+    }
+    const finish=(blob)=>{
+      $('downloadBtn').disabled=false;
+      if(!blob){status('画像を書き出せませんでした。','error');return;}
+      const actualType=blob.type||format;
+      const ext=actualType==='image/jpeg'?'jpg':actualType==='image/webp'?'webp':'png';
+      const url=URL.createObjectURL(blob);
+      const link=document.createElement('a');link.href=url;link.download='craft-myotyo.'+ext;
+      document.body.appendChild(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1500);
+      status(actualType===format?'画像の保存を開始しました。':'このブラウザは指定形式に対応していないためPNG形式で保存しました。','success');
+    };
+    if(typeof exportCanvas.toBlob==='function')exportCanvas.toBlob(finish,format,quality);
+    else{
+      const data=exportCanvas.toDataURL(format,quality);
+      const response=fetch(data).then(r=>r.blob());
+      response.then(finish).catch(error=>{console.error(error);$('downloadBtn').disabled=false;status('画像を書き出せませんでした。','error');});
+    }
+  }catch(error){
+    console.error('Export failed:',error);$('downloadBtn').disabled=false;status('画像を書き出せませんでした。画像サイズを小さくして再試行してください。','error');
+  }
+});
+$('resetBtn').addEventListener('click',()=>{
+  saveUndoPoint();applySettings(DEFAULTS);persistSettings();closeUndoPoint();status('設定を初期化しました。','success');
+});
+$('clearSavedBtn').addEventListener('click',()=>{
+  try{localStorage.removeItem(SETTINGS_KEY);lastSavedSignature='';status('自動保存データを削除しました。スタイル保存データは残っています。','success');}
+  catch(error){status('保存データを削除できませんでした。','error');}
+});
+
+function init(){
+  const saved=safeRead(SETTINGS_KEY,null);
+  applySettings(saved&&typeof saved==='object'?{...DEFAULTS,...saved}:DEFAULTS);
+  lastSavedSignature=signature(readSettings());
+  refreshSavedStyles();
+  updateUndoButtons();
+  updateLabels();updateConditionalControls();syncDimensionInputs();
+  queueRender();
+}
+init();
 </script>
 </body>
 </html>
