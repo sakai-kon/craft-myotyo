@@ -3,18 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
 <title>クラフト明朝 画像生成ツール</title>
 <style>
   * { box-sizing: border-box; }
   body {
-    font-family: -apple-system, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     margin: 0;
     padding: 20px;
+    color: #222;
     background: #f5f5f5;
   }
+  main { width: 100%; max-width: 760px; margin: 0 auto; }
   h1 {
-    font-size: 1.3em;
-    margin-bottom: 16px;
+    font-size: 1.35em;
+    line-height: 1.4;
+    margin: 4px 0 18px;
     text-align: center;
   }
   .section {
@@ -22,221 +26,383 @@
     border-radius: 12px;
     padding: 16px;
     margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
   }
   label {
     display: block;
     margin-bottom: 6px;
     font-weight: 600;
-    font-size: 0.9em;
+    font-size: .92em;
   }
   input[type="file"] {
+    display: block;
     width: 100%;
+    max-width: 100%;
     padding: 8px 0;
   }
   textarea {
+    display: block;
     width: 100%;
-    height: 100px;
+    min-height: 100px;
+    font: inherit;
     font-size: 1em;
     padding: 10px;
     border: 1px solid #ccc;
     border-radius: 8px;
     resize: vertical;
   }
+  textarea:focus, input:focus-visible, button:focus-visible {
+    outline: 3px solid rgba(0,122,255,.25);
+    outline-offset: 2px;
+  }
   .row {
     display: flex;
     gap: 12px;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
   }
-  .row > div {
-    flex: 1;
-  }
-  input[type="range"] {
-    width: 100%;
-  }
+  .row:last-child { margin-bottom: 0; }
+  .row > div { flex: 1; min-width: 0; }
+  input[type="range"] { display: block; width: 100%; }
   input[type="color"] {
     width: 60px;
+    max-width: 100%;
     height: 40px;
-    border: none;
-    padding: 0;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 2px;
+    background: #fff;
   }
   .range-val {
     text-align: center;
-    font-size: 0.85em;
+    font-size: .85em;
     color: #666;
-    margin-top: 4px;
+    margin-top: 5px;
+    font-variant-numeric: tabular-nums;
   }
   button {
     width: 100%;
-    padding: 14px;
-    font-size: 1.1em;
-    font-weight: bold;
+    min-height: 46px;
+    padding: 12px 14px;
+    font: inherit;
+    font-size: 1em;
+    font-weight: 700;
     color: #fff;
     background: #007aff;
     border: none;
     border-radius: 10px;
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
   }
-  button:active { background: #0051d5; }
-  #previewWrap {
+  button:active:not(:disabled) { background: #0051d5; }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  #previewWrap { margin-top: 16px; }
+  #previewWrap[hidden] { display: none; }
+  #previewTitle { margin: 0 0 10px; font-size: .95em; }
+  #canvasWrap {
     text-align: center;
-    overflow-x: auto;
+    overflow: auto;
+    padding: 2px 0;
   }
   canvas {
+    display: block;
+    width: auto;
+    height: auto;
     max-width: 100%;
+    margin: 0 auto;
     border: 1px solid #ddd;
     border-radius: 8px;
     background: #fff;
   }
-  .dl-btn {
-    margin-top: 12px;
-    background: #34c759;
-  }
+  .dl-btn { margin-top: 12px; background: #248a3d; }
   .note {
-    font-size: 0.8em;
+    font-size: .82em;
+    line-height: 1.5;
     color: #666;
-    text-align: center;
-    margin-top: 8px;
+    margin: 8px 0 0;
+  }
+  .status {
+    font-size: .9em;
+    line-height: 1.5;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin: 0 0 16px;
+    background: #eef4ff;
+    color: #254b80;
+    overflow-wrap: anywhere;
+  }
+  .status[data-kind="success"] { background: #eaf7ed; color: #205b2b; }
+  .status[data-kind="error"] { background: #fff0f0; color: #9f2020; }
+  @media (max-width: 420px) {
+    body { padding: 12px; }
+    .section { padding: 14px; }
+    .row { gap: 10px; }
+    h1 { font-size: 1.2em; }
   }
 </style>
 </head>
 <body>
+<main>
+  <h1>クラフト明朝 画像生成ツール</h1>
 
-<h1>クラフト明朝 画像生成ツール</h1>
+  <p id="status" class="status" role="status" aria-live="polite" data-kind="info">
+    フォントファイル（.otf / .ttf）を選択してください。
+  </p>
 
-<div class="section">
-  <label>1. フォントファイルを選択（.otf / .ttf）</label>
-  <input type="file" id="fontFile" accept=".otf,.ttf">
-  <p class="note">craftmincho.otf を選択してください</p>
-</div>
+  <section class="section" aria-labelledby="fontHeading">
+    <label id="fontHeading" for="fontFile">1. フォントファイルを選択（.otf / .ttf）</label>
+    <input type="file" id="fontFile" accept=".otf,.ttf,font/otf,font/ttf,application/octet-stream">
+    <p class="note">craftmincho.otf など、使用したいフォントファイルを選んでください。ファイルはこのページ内で処理され、アップロードされません。</p>
+  </section>
 
-<div class="section">
-  <label>2. テキストを入力</label>
-  <textarea id="textInput" placeholder="ここに文字を入力...">クラフト明朝</textarea>
-</div>
+  <section class="section" aria-labelledby="textHeading">
+    <label id="textHeading" for="textInput">2. テキストを入力</label>
+    <textarea id="textInput" placeholder="ここに文字を入力..." spellcheck="false">クラフト明朝</textarea>
+  </section>
 
-<div class="section">
-  <div class="row">
-    <div>
-      <label>文字サイズ</label>
-      <input type="range" id="fontSize" min="20" max="300" value="120">
-      <div class="range-val" id="fontSizeVal">120px</div>
+  <section class="section" aria-label="画像設定">
+    <div class="row">
+      <div>
+        <label for="fontSize">文字サイズ</label>
+        <input type="range" id="fontSize" min="20" max="300" value="120">
+        <div class="range-val" id="fontSizeVal">120px</div>
+      </div>
+      <div>
+        <label for="fontColor">文字色</label>
+        <input type="color" id="fontColor" value="#000000">
+      </div>
     </div>
-    <div>
-      <label>文字色</label>
-      <input type="color" id="fontColor" value="#000000">
+    <div class="row">
+      <div>
+        <label for="bgColor">背景色</label>
+        <input type="color" id="bgColor" value="#ffffff">
+      </div>
+      <div>
+        <label for="paddingY">上下余白</label>
+        <input type="range" id="paddingY" min="0" max="200" value="40">
+        <div class="range-val" id="paddingYVal">40px</div>
+      </div>
     </div>
-  </div>
-  <div class="row">
-    <div>
-      <label>背景色</label>
-      <input type="color" id="bgColor" value="#ffffff">
+    <div class="row">
+      <div>
+        <label for="paddingX">左右余白</label>
+        <input type="range" id="paddingX" min="0" max="200" value="40">
+        <div class="range-val" id="paddingXVal">40px</div>
+      </div>
+      <div>
+        <label for="lineHeight">行間</label>
+        <input type="range" id="lineHeight" min="1.0" max="3.0" step="0.1" value="1.5">
+        <div class="range-val" id="lineHeightVal">1.5</div>
+      </div>
     </div>
-    <div>
-      <label>上下余白</label>
-      <input type="range" id="paddingY" min="0" max="200" value="40">
-      <div class="range-val" id="paddingYVal">40px</div>
-    </div>
-  </div>
-  <div class="row">
-    <div>
-      <label>左右余白</label>
-      <input type="range" id="paddingX" min="0" max="200" value="40">
-      <div class="range-val" id="paddingXVal">40px</div>
-    </div>
-    <div>
-      <label>行間</label>
-      <input type="range" id="lineHeight" min="1.0" max="3.0" step="0.1" value="1.5">
-      <div class="range-val" id="lineHeightVal">1.5</div>
-    </div>
-  </div>
-</div>
+  </section>
 
-<div class="section">
-  <button id="renderBtn">プレビュー生成</button>
-  <div id="previewWrap" style="display:none;">
-    <canvas id="canvas"></canvas>
-    <button class="dl-btn" id="dlBtn">画像を保存（PNG）</button>
-  </div>
-</div>
+  <section class="section" aria-label="プレビューと保存">
+    <button type="button" id="renderBtn">プレビュー生成</button>
+    <div id="previewWrap" hidden>
+      <h2 id="previewTitle">プレビュー</h2>
+      <div id="canvasWrap"><canvas id="canvas"></canvas></div>
+      <button type="button" class="dl-btn" id="dlBtn" disabled>画像を保存（PNG）</button>
+      <p class="note">設定を変更したら、もう一度「プレビュー生成」を押してください。</p>
+    </div>
+  </section>
+</main>
 
 <script>
-const $ = id => document.getElementById(id);
+'use strict';
 
-// スライダー値表示更新
-['fontSize','paddingY','paddingX','lineHeight'].forEach(id => {
+const $ = id => document.getElementById(id);
+const MAX_CANVAS_DIMENSION = 16384;
+const MAX_CANVAS_PIXELS = 16000000;
+
+let loadedFont = null;
+let hasPreview = false;
+
+function showStatus(message, kind = 'info') {
+  const status = $('status');
+  status.textContent = message;
+  status.dataset.kind = kind;
+}
+
+function markPreviewStale() {
+  if (!hasPreview) return;
+  hasPreview = false;
+  $('dlBtn').disabled = true;
+  showStatus('設定が変更されました。「プレビュー生成」を押して画像を更新してください。');
+}
+
+['fontSize', 'paddingY', 'paddingX', 'lineHeight'].forEach(id => {
   $(id).addEventListener('input', () => {
-    $(id+'Val').textContent = $(id).value + (id==='lineHeight' ? '' : 'px');
+    const value = $(id).value;
+    $(id + 'Val').textContent = value + (id === 'lineHeight' ? '' : 'px');
+    markPreviewStale();
   });
 });
 
-let loadedFont = null;
+['textInput', 'fontColor', 'bgColor'].forEach(id => {
+  $(id).addEventListener('input', markPreviewStale);
+});
 
-// フォント読み込み
-$('fontFile').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
+$('fontFile').addEventListener('change', async event => {
+  const file = event.target.files && event.target.files[0];
   if (!file) return;
-  const buf = await file.arrayBuffer();
-  loadedFont = new FontFace('CustomFont', buf);
-  await loadedFont.load();
-  document.fonts.add(loadedFont);
-  alert('フォントを読み込みました！');
+
+  $('fontFile').disabled = true;
+  $('renderBtn').disabled = true;
+  showStatus(file.name + ' を読み込んでいます…');
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const candidate = new FontFace('CustomFont', buffer);
+    await candidate.load();
+
+    // 成功するまでは現在のフォントを置き換えず、失敗時に利用不能になるのを防ぐ。
+    if (loadedFont) document.fonts.delete(loadedFont);
+    document.fonts.add(candidate);
+    loadedFont = candidate;
+    markPreviewStale();
+    showStatus('フォントを読み込みました：' + file.name, 'success');
+  } catch (error) {
+    console.error('Font loading failed:', error);
+    showStatus('フォントを読み込めませんでした。OTF / TTF形式のファイルか確認してください。' +
+      (loadedFont ? ' 前に読み込んだフォントは引き続き使えます。' : ''), 'error');
+  } finally {
+    $('fontFile').disabled = false;
+    $('renderBtn').disabled = false;
+  }
 });
 
 function render() {
   if (!loadedFont) {
-    alert('先にフォントファイルを選択してください');
+    showStatus('先にフォントファイルを選択してください。', 'error');
+    $('fontFile').focus();
     return;
   }
+
   const text = $('textInput').value;
-  if (!text.trim()) return;
+  if (!text.trim()) {
+    showStatus('画像にするテキストを入力してください。', 'error');
+    $('textInput').focus();
+    return;
+  }
 
-  const fontSize = parseInt($('fontSize').value);
-  const color = $('fontColor').value;
-  const bg = $('bgColor').value;
-  const px = parseInt($('paddingX').value);
-  const py = parseInt($('paddingY').value);
-  const lh = parseFloat($('lineHeight').value);
+  try {
+    const fontSize = Number($('fontSize').value);
+    const color = $('fontColor').value;
+    const bg = $('bgColor').value;
+    const paddingX = Number($('paddingX').value);
+    const paddingY = Number($('paddingY').value);
+    const lineHeight = Number($('lineHeight').value);
+    const lines = text.split('\n');
+    const canvas = $('canvas');
+    const ctx = canvas.getContext('2d');
 
-  const canvas = $('canvas');
-  const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas 2D context is unavailable.');
 
-  // 測定用の一時設定
-  ctx.font = fontSize + 'px CustomFont';
-  const lines = text.split('\n');
-  let maxW = 0;
-  lines.forEach(line => {
-    const w = ctx.measureText(line).width;
-    if (w > maxW) maxW = w;
-  });
+    ctx.font = fontSize + 'px CustomFont';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
 
-  canvas.width = Math.ceil(maxW + px * 2);
-  canvas.height = Math.ceil(fontSize * lines.length * lh + py * 2);
+    // 空行にも文字行と同じ高さを確保し、フォントごとの上下のはみ出しを測る。
+    const metrics = lines.map(line => ctx.measureText(line || '国Ag'));
+    const ascent = Math.max(fontSize * 0.8, ...metrics.map(m =>
+      Number.isFinite(m.actualBoundingBoxAscent) ? m.actualBoundingBoxAscent : fontSize * 0.8));
+    const descent = Math.max(fontSize * 0.2, ...metrics.map(m =>
+      Number.isFinite(m.actualBoundingBoxDescent) ? m.actualBoundingBoxDescent : fontSize * 0.2));
+    const widths = lines.map(line => ctx.measureText(line).width);
+    const maxWidth = Math.max(0, ...widths);
+    const rowHeight = fontSize * lineHeight;
+    const edgeSpace = Math.max(2, Math.ceil(fontSize * 0.1));
+    const width = Math.ceil(maxWidth + paddingX * 2 + edgeSpace * 2);
+    const height = Math.ceil(paddingY * 2 + edgeSpace * 2 + ascent + descent +
+      rowHeight * (lines.length - 1));
 
-  // 背景
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // ブラウザやスマートフォンのメモリ不足を避けるため、極端に大きな画像は生成しない。
+    if (!Number.isFinite(width) || !Number.isFinite(height) ||
+        width < 1 || height < 1 ||
+        width > MAX_CANVAS_DIMENSION || height > MAX_CANVAS_DIMENSION ||
+        width * height > MAX_CANVAS_PIXELS) {
+      showStatus('画像サイズが大きすぎます。文字数・文字サイズ・余白を減らして再試行してください。', 'error');
+      return;
+    }
 
-  // テキスト描画
-  ctx.fillStyle = color;
-  ctx.font = fontSize + 'px CustomFont';
-  ctx.textBaseline = 'top';
-  lines.forEach((line, i) => {
-    const y = py + fontSize * i * lh;
-    ctx.fillText(line, px, y);
-  });
+    canvas.width = width;
+    canvas.height = height;
 
-  $('previewWrap').style.display = 'block';
+    // canvasの幅・高さを変更すると描画設定がリセットされるため、ここで再設定する。
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = color;
+    ctx.font = fontSize + 'px CustomFont';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+
+    const x = paddingX + edgeSpace;
+    const firstBaseline = paddingY + edgeSpace + ascent;
+    lines.forEach((line, index) => {
+      ctx.fillText(line, x, firstBaseline + rowHeight * index);
+    });
+
+    $('previewWrap').hidden = false;
+    $('dlBtn').disabled = false;
+    hasPreview = true;
+    showStatus('プレビューを生成しました。内容を確認してPNGで保存できます。', 'success');
+  } catch (error) {
+    console.error('Image rendering failed:', error);
+    hasPreview = false;
+    $('dlBtn').disabled = true;
+    showStatus('画像を生成できませんでした。文字数や画像サイズを減らして、もう一度お試しください。', 'error');
+  }
 }
 
 $('renderBtn').addEventListener('click', render);
 
 $('dlBtn').addEventListener('click', () => {
-  const link = document.createElement('a');
-  link.download = 'craftmincho_text.png';
-  link.href = $('canvas').toDataURL('image/png');
-  link.click();
+  if (!hasPreview) {
+    showStatus('先にプレビューを生成してください。', 'error');
+    return;
+  }
+
+  const canvas = $('canvas');
+  const button = $('dlBtn');
+  button.disabled = true;
+  showStatus('PNG画像を準備しています…');
+
+  try {
+    if (typeof canvas.toBlob !== 'function') {
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = 'craftmincho_text.png';
+      link.href = dataUrl;
+      link.click();
+      button.disabled = false;
+      showStatus('PNG画像の保存を開始しました。', 'success');
+      return;
+    }
+
+    canvas.toBlob(blob => {
+      if (!blob) {
+        button.disabled = false;
+        showStatus('PNG画像を書き出せませんでした。もう一度お試しください。', 'error');
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = 'craftmincho_text.png';
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      button.disabled = false;
+      showStatus('PNG画像の保存を開始しました。', 'success');
+    }, 'image/png');
+  } catch (error) {
+    console.error('PNG export failed:', error);
+    button.disabled = false;
+    showStatus('PNG画像を書き出せませんでした。このブラウザでの保存に対応していない可能性があります。', 'error');
+  }
 });
 </script>
-
 </body>
 </html>
