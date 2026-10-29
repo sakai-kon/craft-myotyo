@@ -170,6 +170,7 @@ footer{display:none}
     <div class="panel">
       <h2>文字 <span>テキスト・フォント</span></h2>
       <div class="control"><label for="textInput">文字（改行対応）</label><textarea id="textInput" placeholder="ここに文字を入力">クラフト明朝</textarea></div>
+      <div class="control"><label for="textDirection">文字の向き</label><select id="textDirection"><option value="horizontal">横書き</option><option value="vertical">縦書き（右から左へ）</option></select><p class="hint">縦書きでは改行ごとに列を分け、右から左へ並べます。</p></div>
       <div class="grid2">
         <div class="control"><label for="fontFile">フォントファイル（OTF / TTF）</label><input type="file" id="fontFile" accept=".otf,.ttf,font/otf,font/ttf,application/octet-stream"></div>
         <div class="control"><label>現在のフォント</label><div id="fontStatus" class="hint">標準フォント</div><button class="btn small" id="clearFontBtn" type="button">カスタムフォントを解除</button></div>
@@ -183,8 +184,8 @@ footer{display:none}
         <div class="control"><label for="gradientEnd">グラデーション終了色</label><input type="color" id="gradientEnd" value="#6758ff"></div>
       </div>
       <div class="grid2">
-        <div class="control"><label for="align">文字揃え</label><select id="align"><option value="left">左揃え</option><option value="center" selected>中央揃え</option><option value="right">右揃え</option></select></div>
-        <div class="control"><label for="lineHeight">行間</label><input type="range" id="lineHeight" min="0.8" max="2.5" step="0.05" value="1.25"><div class="value" id="lineHeightVal">1.25 倍</div></div>
+        <div class="control"><label for="align" id="alignLabel">文字揃え</label><select id="align"><option value="left">左揃え</option><option value="center" selected>中央揃え</option><option value="right">右揃え</option></select></div>
+        <div class="control"><label for="lineHeight" id="lineHeightLabel">行間</label><input type="range" id="lineHeight" min="0.8" max="2.5" step="0.05" value="1.25"><div class="value" id="lineHeightVal">1.25 倍</div></div>
       </div>
       <div class="grid2">
         <div class="control"><label for="letterSpacing">文字間隔</label><input type="range" id="letterSpacing" min="-8" max="30" step="1" value="0"><div class="value" id="letterSpacingVal">0 px</div></div>
@@ -256,7 +257,7 @@ const STYLES_KEY = 'craftMyotyoStudio.styles.v2';
 const MAX_DIMENSION = 4096;
 const MAX_PIXELS = 12000000;
 const DEFAULTS = {
-  preset:'1280x720',canvasW:'1280',canvasH:'720',transparent:false,bgColor:'#ffffff',imageFit:'cover',
+  preset:'1280x720',canvasW:'1280',canvasH:'720',transparent:false,bgColor:'#ffffff',imageFit:'cover',textDirection:'horizontal',
   textInput:'クラフト明朝',fontSize:'110',fontColor:'#111111',fillMode:'solid',gradientStart:'#ff4c9a',gradientEnd:'#6758ff',
   align:'center',lineHeight:'1.25',letterSpacing:'0',rotation:'0',bold:false,italic:false,positionX:'50',positionY:'50',
   strokeEnabled:false,strokeColor:'#ffffff',strokeWidth:'5',shadowEnabled:false,shadowColor:'#000000',shadowBlur:'12',shadowX:'4',shadowY:'6',
@@ -307,6 +308,7 @@ function readSettings(){
   return out;
 }
 function applySettings(settings){
+  settings={...DEFAULTS,...settings};
   applyingSnapshot=true;
   CONTROL_IDS.forEach(id=>{
     const el=$(id);
@@ -387,7 +389,10 @@ function syncDimensionInputs(){
   }
 }
 function updateConditionalControls(){
+  const vertical=$('textDirection').value==='vertical';
   $('gradientControls').hidden=$('fillMode').value!=='gradient';
+  $('alignLabel').textContent=vertical?'上下揃え':'文字揃え';
+  $('lineHeightLabel').textContent=vertical?'列間隔':'行間';
 }
 function queueRender(){
   // Invalidate the previous bitmap immediately so a click cannot export stale content
@@ -444,6 +449,112 @@ function drawBackground(width,height){
   const w=iw*scale,h=ih*scale;
   ctx.drawImage(backgroundImage,(width-w)/2,(height-h)/2,w,h);
 }
+function drawVerticalGlyph(glyph,x,y,stroke,fontSize){
+  // Place Japanese comma/full stop near the upper-right of their vertical cell.
+  const punctuation='、。，．'.includes(glyph);
+  const drawX=x+(punctuation?fontSize*.16:0);
+  const drawY=y-(punctuation?fontSize*.16:0);
+  // Horizontal dash/ellipsis glyphs are rotated to follow vertical typesetting.
+  const rotateGlyph=/^[ー―—–−﹣－…‥]$/u.test(glyph);
+  if(rotateGlyph){
+    ctx.save();
+    ctx.translate(drawX,drawY);
+    ctx.rotate(Math.PI/2);
+    if(stroke)ctx.strokeText(glyph,0,0);else ctx.fillText(glyph,0,0);
+    ctx.restore();
+  }else if(stroke)ctx.strokeText(glyph,drawX,drawY);
+  else ctx.fillText(glyph,drawX,drawY);
+}
+function drawVerticalText(lines,fontSize,spacing,width,height){
+  const columns=lines.map(line=>splitGlyphs(line));
+  const glyphPitch=fontSize+spacing;
+  const columnPitch=fontSize*Number($('lineHeight').value);
+  const heights=columns.map(glyphs=>glyphs.length?fontSize+(glyphs.length-1)*glyphPitch:0);
+  const maxHeight=Math.max(fontSize,...heights);
+  const blockWidth=fontSize+Math.max(0,columns.length-1)*columnPitch;
+  const anchorX=width*Number($('positionX').value)/100;
+  const anchorY=height*Number($('positionY').value)/100;
+  const angle=Number($('rotation').value)*Math.PI/180;
+  const align=$('align').value;
+
+  // Japanese vertical writing advances downward and creates new columns right-to-left.
+  ctx.translate(anchorX,anchorY);
+  ctx.rotate(angle);
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+
+  const columnXs=columns.map((_,index)=>blockWidth/2-fontSize/2-index*columnPitch);
+  const tops=heights.map(columnHeight=>{
+    if(align==='left')return -maxHeight/2;
+    if(align==='right')return maxHeight/2-columnHeight;
+    return -columnHeight/2;
+  });
+  const drawColumns=(stroke,offsetX=0,offsetY=0)=>{
+    columns.forEach((glyphs,columnIndex)=>{
+      const x=columnXs[columnIndex]+offsetX;
+      const top=tops[columnIndex];
+      glyphs.forEach((glyph,glyphIndex)=>{
+        const y=top+fontSize/2+glyphIndex*glyphPitch+offsetY;
+        drawVerticalGlyph(glyph,x,y,stroke,fontSize);
+      });
+    });
+  };
+
+  const shadowEnabled=$('shadowEnabled').checked;
+  const shadowBlur=Number($('shadowBlur').value);
+  if(shadowEnabled){
+    ctx.save();
+    ctx.filter=shadowBlur>0?'blur('+shadowBlur+'px)':'none';
+    ctx.globalAlpha=.82;
+    ctx.fillStyle=$('shadowColor').value;
+    drawColumns(false,Number($('shadowX').value),Number($('shadowY').value));
+    ctx.restore();
+  }
+
+  if($('strokeEnabled').checked){
+    ctx.lineWidth=Number($('strokeWidth').value)*2;
+    ctx.strokeStyle=$('strokeColor').value;
+    drawColumns(true);
+  }
+
+  let fillStyle=$('fontColor').value;
+  if($('fillMode').value==='gradient'){
+    const gradient=ctx.createLinearGradient(0,-maxHeight/2,0,maxHeight/2);
+    gradient.addColorStop(0,$('gradientStart').value);
+    gradient.addColorStop(1,$('gradientEnd').value);
+    fillStyle=gradient;
+  }
+  ctx.fillStyle=fillStyle;
+  drawColumns(false);
+
+  if($('underline').checked||$('strikethrough').checked){
+    ctx.save();
+    ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetX=0;ctx.shadowOffsetY=0;
+    ctx.strokeStyle=fillStyle;
+    ctx.lineWidth=Math.max(1,fontSize/24);
+    ctx.beginPath();
+    columns.forEach((glyphs,columnIndex)=>{
+      if(!glyphs.length)return;
+      const x=columnXs[columnIndex];
+      const top=tops[columnIndex];
+      const columnHeight=heights[columnIndex];
+      if($('underline').checked){
+        const underlineX=x-fontSize*.42;
+        ctx.moveTo(underlineX,top+fontSize*.1);
+        ctx.lineTo(underlineX,top+columnHeight-fontSize*.1);
+      }
+      if($('strikethrough').checked){
+        glyphs.forEach((_,glyphIndex)=>{
+          const y=top+fontSize/2+glyphIndex*glyphPitch;
+          ctx.moveTo(x-fontSize*.38,y);
+          ctx.lineTo(x+fontSize*.38,y);
+        });
+      }
+    });
+    ctx.stroke();
+    ctx.restore();
+  }
+}
 function render(){
   if(!ctx){status('Canvasを利用できないブラウザです。','error');return;}
   const width=Number($('canvasW').value),height=Number($('canvasH').value);
@@ -468,6 +579,15 @@ function render(){
     const fontSize=Number($('fontSize').value);
     const spacing=Number($('letterSpacing').value);
     const lines=text.split('\n');
+    if($('textDirection').value==='vertical'){
+      drawVerticalText(lines,fontSize,spacing,width,height);
+      ctx.restore();
+      hasDrawn=true;
+      $('downloadBtn').disabled=false;
+      updateLabels();
+      status('縦書きプレビューを更新しました。','success');
+      return;
+    }
     const lineWidths=lines.map(line=>measureSpaced(line,spacing));
     const maxLineWidth=Math.max(0,...lineWidths);
     const ascent=Math.max(fontSize*.8,...lines.map(line=>{
