@@ -179,6 +179,8 @@ footer{display:none}
         <div class="control"><label for="fontSize">文字サイズ</label><input type="range" id="fontSize" min="12" max="360" value="110"><div class="value" id="fontSizeVal">110 px</div></div>
         <div class="control"><label for="fontColor">文字色</label><div class="color-control"><input type="color" id="fontColor" value="#111111"><select id="fillMode" aria-label="文字色の種類"><option value="solid">単色</option><option value="gradient">グラデーション</option></select></div></div>
       </div>
+      <div class="toolbar"><button class="btn small" id="fitTextBtn" type="button">文字を中央に自動フィット</button></div>
+      <p class="hint">文字をキャンバス中央に配置し、縦横・回転・装飾を考慮して収まる最大サイズに調整します。操作は「戻す」で取り消せます。</p>
       <div id="gradientControls" class="grid2" hidden>
         <div class="control"><label for="gradientStart">グラデーション開始色</label><input type="color" id="gradientStart" value="#ff4c9a"></div>
         <div class="control"><label for="gradientEnd">グラデーション終了色</label><input type="color" id="gradientEnd" value="#6758ff"></div>
@@ -412,10 +414,10 @@ function queueRender(){
     render();
   });
 }
-function fontSpec(){
+function fontSpec(size=Number($('fontSize').value)){
   const style=$('italic').checked?'italic ':'';
   const weight=$('bold').checked?'700 ':'400 ';
-  return style+weight+Number($('fontSize').value)+'px '+(customFont?'"StudioUploadedFont"':'system-ui, sans-serif');
+  return style+weight+Number(size)+'px '+(customFont?'"StudioUploadedFont"':'system-ui, sans-serif');
 }
 function splitGlyphs(text){
   if(typeof Intl!=='undefined'&&Intl.Segmenter){
@@ -560,6 +562,94 @@ function drawVerticalText(lines,fontSize,spacing,width,height){
     ctx.stroke();
     ctx.restore();
   }
+}
+function measureTextBoundsForFit(fontSize){
+  const width=Number($('canvasW').value);
+  const height=Number($('canvasH').value);
+  const text=$('textInput').value;
+  const spacing=Number($('letterSpacing').value);
+  const lines=text.split('\n');
+  let left=0,right=0,top=0,bottom=0;
+  ctx.save();
+  try{
+    ctx.font=fontSpec(fontSize);
+    if($('textDirection').value==='vertical'){
+      const columns=lines.map(line=>splitGlyphs(line));
+      const columnPitch=fontSize*Number($('lineHeight').value);
+      const columnHeights=columns.map(glyphs=>glyphs.length?fontSize+(glyphs.length-1)*(fontSize+spacing):0);
+      const blockWidth=fontSize+Math.max(0,columns.length-1)*columnPitch;
+      const blockHeight=Math.max(fontSize,...columnHeights);
+      left=-blockWidth/2;right=blockWidth/2;top=-blockHeight/2;bottom=blockHeight/2;
+    }else{
+      const lineWidths=lines.map(line=>measureSpaced(line,spacing));
+      const maxWidth=Math.max(0,...lineWidths);
+      const ascent=Math.max(fontSize*.8,...lines.map(line=>{
+        const metrics=ctx.measureText(line||'国Ag');
+        return Number.isFinite(metrics.actualBoundingBoxAscent)?metrics.actualBoundingBoxAscent:fontSize*.8;
+      }));
+      const descent=Math.max(fontSize*.2,...lines.map(line=>{
+        const metrics=ctx.measureText(line||'国Ag');
+        return Number.isFinite(metrics.actualBoundingBoxDescent)?metrics.actualBoundingBoxDescent:fontSize*.2;
+      }));
+      const totalHeight=ascent+descent+fontSize*Number($('lineHeight').value)*Math.max(0,lines.length-1);
+      left=-maxWidth/2;right=maxWidth/2;top=-totalHeight/2;bottom=totalHeight/2;
+    }
+  }finally{
+    ctx.restore();
+  }
+  // Account for rotation around the centered anchor.
+  const angle=Number($('rotation').value)*Math.PI/180;
+  const cosine=Math.cos(angle),sine=Math.sin(angle);
+  const corners=[
+    {x:left,y:top},{x:right,y:top},{x:right,y:bottom},{x:left,y:bottom}
+  ].map(point=>({x:point.x*cosine-point.y*sine,y:point.x*sine+point.y*cosine}));
+  const minX=Math.min(...corners.map(p=>p.x));
+  const maxX=Math.max(...corners.map(p=>p.x));
+  const minY=Math.min(...corners.map(p=>p.y));
+  const maxY=Math.max(...corners.map(p=>p.y));
+  const strokePad=$('strokeEnabled').checked?Number($('strokeWidth').value):0;
+  const shadowPad=$('shadowEnabled').checked
+    ?Number($('shadowBlur').value)*2+Math.max(Math.abs(Number($('shadowX').value)),Math.abs(Number($('shadowY').value)))
+    :0;
+  const pad=10+strokePad+shadowPad;
+  return {
+    fits:minX>=-width/2+pad&&maxX<=width/2-pad&&minY>=-height/2+pad&&maxY<=height/2-pad,
+    width:maxX-minX,
+    height:maxY-minY
+  };
+}
+function fitTextToCanvas(){
+  const text=$('textInput').value;
+  if(!text.trim()){
+    status('先に文字を入力してください。','error');
+    $('textInput').focus();
+    return;
+  }
+  const width=Number($('canvasW').value),height=Number($('canvasH').value);
+  if(!Number.isInteger(width)||!Number.isInteger(height)||width<64||height<64||width>MAX_DIMENSION||height>MAX_DIMENSION||width*height>MAX_PIXELS){
+    status('キャンバスサイズを確認してください。幅・高さは64〜4096px、合計1200万画素以内です。','error');
+    return;
+  }
+  // Search the largest size supported by the existing slider.
+  let low=12,high=360,best=0;
+  while(low<=high){
+    const middle=Math.floor((low+high)/2);
+    if(measureTextBoundsForFit(middle).fits){best=middle;low=middle+1;}
+    else high=middle-1;
+  }
+  if(best===0){
+    status('最小サイズでも収まりません。文字数を減らすかキャンバスを大きくしてください。','error');
+    return;
+  }
+  saveUndoPoint();
+  $('fontSize').value=String(best);
+  $('align').value='center';
+  $('positionX').value='50';
+  $('positionY').value='50';
+  changeSettingsHandler();
+  closeUndoPoint();
+  updateUndoButtons();
+  status('文字を中央に配置し、'+best+' pxに自動調整しました。','success');
 }
 function render(){
   if(!ctx){status('Canvasを利用できないブラウザです。','error');return;}
@@ -714,6 +804,7 @@ $('canvasH').addEventListener('input',()=>{
 });
 $('undoBtn').addEventListener('click',undo);
 $('redoBtn').addEventListener('click',redo);
+$('fitTextBtn').addEventListener('click',fitTextToCanvas);
 document.addEventListener('keydown',event=>{
   const command=event.ctrlKey||event.metaKey;
   if(command&&event.key.toLowerCase()==='z'){
