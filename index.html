@@ -393,6 +393,12 @@ function updateConditionalControls(){
   $('gradientControls').hidden=$('fillMode').value!=='gradient';
   $('alignLabel').textContent=vertical?'上下揃え':'文字揃え';
   $('lineHeightLabel').textContent=vertical?'列間隔':'行間';
+  const alignOptions=$('align').options;
+  if(alignOptions.length>=3){
+    alignOptions[0].textContent=vertical?'上揃え':'左揃え';
+    alignOptions[1].textContent='中央揃え';
+    alignOptions[2].textContent=vertical?'下揃え':'右揃え';
+  }
 }
 function queueRender(){
   // Invalidate the previous bitmap immediately so a click cannot export stale content
