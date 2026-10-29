@@ -619,6 +619,7 @@ function measureTextBoundsForFit(fontSize){
   };
 }
 function fitTextToCanvas(){
+  if(!ctx){status('Canvasを利用できないブラウザです。','error');return;}
   const text=$('textInput').value;
   if(!text.trim()){
     status('先に文字を入力してください。','error');
