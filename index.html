@@ -1237,7 +1237,7 @@ restoreSavedFont();
       if($('shadowEnabled').checked){ctx2.save();ctx2.filter=Number($('shadowBlur').value)>0?'blur('+Number($('shadowBlur').value)+'px)':'none';ctx2.globalAlpha=.82;ctx2.fillStyle=$('shadowColor').value;ctx2.fillText(glyph,Number($('shadowX').value),Number($('shadowY').value));ctx2.restore();}
       if(features.extrude){const d=Number(features.extrudeDepth),a=Number(features.extrudeAngle)*Math.PI/180;ctx2.fillStyle=features.extrudeColor;for(let k=d;k>0;k--)ctx2.fillText(glyph,Math.cos(a)*k,Math.sin(a)*k);}
       if(features.outer){ctx2.lineWidth=(Number($('strokeWidth').value)+Number(features.outerWidth))*2;ctx2.strokeStyle=features.outerColor;ctx2.strokeText(glyph,0,0);}
-      if($('strokeEnabled').checked){ctx2.lineWidth=Number($('strokeWidth').value)*2;ctx2.strokeStyle=$('strokeColor').value;ctx2.strokeText(glyph,0,0);}
+      if($('strokeEnabled').checked&&!forceOuterOnly){ctx2.lineWidth=Number($('strokeWidth').value)*2;ctx2.strokeStyle=$('strokeColor').value;ctx2.strokeText(glyph,0,0);}
       ctx2.fillStyle=active?features.charColor:($('fillMode').value==='gradient'?(function(){const g=ctx2.createLinearGradient(-length/2,0,length/2,0);g.addColorStop(0,$('gradientStart').value);g.addColorStop(1,$('gradientEnd').value);return g;})():texturePattern()||$('fontColor').value);
       if(active){ctx2.rotate(Number(features.charRotation)*Math.PI/180);const sc=Number(features.charScale)/100;ctx2.scale(sc,sc);}
       ctx2.fillText(glyph,0,0);ctx2.restore();current+=widths[i];
@@ -1253,7 +1253,7 @@ restoreSavedFont();
     forceOuterOnly=features.outer&&!wasStroke;
     if(forceOuterOnly){$('strokeEnabled').checked=true;$('strokeColor').value=features.outerColor;$('strokeWidth').value=String(features.outerWidth);}
     try{
-      if(curved){$('textInput').value='';originalRender();$('textInput').value=text;if(hasDrawn)drawCurve();}
+      if(curved){$('textInput').value='';originalRender();$('textInput').value=text;if(hasDrawn){drawCurve();status('曲線文字プレビューを更新しました。','success');}}
       else originalRender();
     }finally{
       $('textInput').value=text;$('strokeEnabled').checked=wasStroke;$('strokeColor').value=wasColor;$('strokeWidth').value=wasWidth;forceOuterOnly=false;
