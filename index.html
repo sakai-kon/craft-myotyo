@@ -1448,22 +1448,99 @@ restoreSavedFont();
     reader.readAsText(file);
   });
   function escXml(value){return String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
-  function svgText(text,x,y,size,color,rotation,weight,align,outline,outlineWidth){
+  function safeSvgColor(value,fallback='#111111'){
+    const candidate=String(value??'');
+    return /^#[0-9a-f]{6}$/i.test(candidate)?candidate:fallback;
+  }
+  function safeSvgFill(value){
+    const candidate=String(value??'');
+    if(/^url\(#(?:myotyoGradient|myotyoTextureDots|myotyoTextureLines|myotyoTextureChecker)\)$/.test(candidate))return candidate;
+    return safeSvgColor(candidate,'#111111');
+  }
+  function svgText(text,x,y,size,color,rotation,weight,align,outline,outlineWidth,letterSpacing=0,applyEffects=true,italic=false){
+    x=Number.isFinite(Number(x))?Number(x):0;y=Number.isFinite(Number(y))?Number(y):0;
+    size=Math.max(1,Math.min(4096,Number(size)||110));
+    rotation=Math.max(-360,Math.min(360,Number(rotation)||0));
+    letterSpacing=Math.max(-30,Math.min(100,Number(letterSpacing)||0));
+    outlineWidth=Math.max(0,Math.min(80,Number(outlineWidth)||0));
+    color=safeSvgFill(color);outline=outline==='none'?'none':safeSvgColor(outline,'none');
+    const safeWeight=weight==='700'?'700':'400',fontStyle=italic?'italic':'normal';
     const anchor=align==='left'?'start':align==='right'?'end':'middle';
-    const lines=String(text).split('\n'),gap=size*Number($('lineHeight').value),spans=lines.map((v,i)=>'<tspan x="'+x+'" dy="'+(i===0?-(lines.length-1)*gap/2:gap)+'">'+escXml(v)+'</tspan>').join('');
-    const transform='rotate('+Number(rotation||0)+' '+x+' '+y+')';
+    const lines=String(text).split('\n'),gap=size*Number($('lineHeight').value);
+    const spans=lines.map((v,i)=>'<tspan x="'+x+'" dy="'+(i===0?-(lines.length-1)*gap/2:gap)+'">'+escXml(v)+'</tspan>').join('');
+    const transform='rotate('+rotation+' '+x+' '+y+')';
+    const common='text-anchor="'+anchor+'" dominant-baseline="middle" font-family="sans-serif" font-size="'+size+'" font-weight="'+safeWeight+'" font-style="'+fontStyle+'" letter-spacing="'+letterSpacing+'"';
     let str='';
-    if(features.extrude){const rad=Number(features.extrudeAngle)*Math.PI/180,depth=Number(features.extrudeDepth);for(let d=depth;d>0;d--){const dx=Math.cos(rad)*d,dy=Math.sin(rad)*d;str+='<text x="'+(x+dx)+'" y="'+(y+dy)+'" text-anchor="'+anchor+'" dominant-baseline="middle" font-family="sans-serif" font-size="'+size+'" font-weight="'+weight+'" fill="'+features.extrudeColor+'">'+spans+'</text>';}}
-    if(features.outer)str+='<text x="'+x+'" y="'+y+'" transform="'+transform+'" text-anchor="'+anchor+'" dominant-baseline="middle" font-family="sans-serif" font-size="'+size+'" font-weight="'+weight+'" fill="none" stroke="'+features.outerColor+'" stroke-width="'+(Number(outlineWidth||0)+Number(features.outerWidth))*2+'" stroke-linejoin="round">'+spans+'</text>';
-    if(outlineWidth>0)str+='<text x="'+x+'" y="'+y+'" transform="'+transform+'" text-anchor="'+anchor+'" dominant-baseline="middle" font-family="sans-serif" font-size="'+size+'" font-weight="'+weight+'" fill="none" stroke="'+outline+'" stroke-width="'+outlineWidth*2+'" stroke-linejoin="round">'+spans+'</text>';
-    str+='<text x="'+x+'" y="'+y+'" transform="'+transform+'" text-anchor="'+anchor+'" dominant-baseline="middle" font-family="sans-serif" font-size="'+size+'" font-weight="'+weight+'" fill="'+color+'">'+spans+'</text>';return str;
+    if(applyEffects&&features.extrude){
+      const rad=Number(features.extrudeAngle)*Math.PI/180,depth=Math.max(1,Math.min(40,Number(features.extrudeDepth)||8)),extrudeColor=safeSvgColor(features.extrudeColor,'#343a54');
+      for(let d=depth;d>0;d--){const dx=Math.cos(rad)*d,dy=Math.sin(rad)*d;str+='<text x="'+(x+dx)+'" y="'+(y+dy)+'" '+common+' fill="'+extrudeColor+'">'+spans+'</text>';}
+    }
+    if(applyEffects&&features.outer){
+      const outerColor=safeSvgColor(features.outerColor,'#111111');
+      str+='<text x="'+x+'" y="'+y+'" transform="'+transform+'" '+common+' fill="none" stroke="'+outerColor+'" stroke-width="'+(outlineWidth+Math.max(1,Math.min(80,Number(features.outerWidth)||12)))*2+'" stroke-linejoin="round">'+spans+'</text>';
+    }
+    if(outlineWidth>0)str+='<text x="'+x+'" y="'+y+'" transform="'+transform+'" '+common+' fill="none" stroke="'+outline+'" stroke-width="'+outlineWidth*2+'" stroke-linejoin="round">'+spans+'</text>';
+    str+='<text x="'+x+'" y="'+y+'" transform="'+transform+'" '+common+' fill="'+color+'">'+spans+'</text>';
+    return str;
+  }
+  function svgCharacter(text,x,y,rotation,settings,fill,index,outline,outlineWidth){
+    const active=features.charEnabled&&index===Number(features.charIndex)-1;
+    let result=svgText(text,x,y,Number(settings.fontSize),active?safeSvgColor(features.charColor,'#ff3b70'):fill,rotation,settings.bold?'700':'400','center',outline,outlineWidth,0,true,settings.italic);
+    if(active){
+      const scale=Math.max(.5,Math.min(2,Number(features.charScale)/100||1));
+      result='<g transform="translate('+x+' '+y+') rotate('+Math.max(-180,Math.min(180,Number(features.charRotation)||0))+') scale('+scale+') translate('+(-x)+' '+(-y)+')">'+result+'</g>';
+    }
+    return result;
+  }
+  function svgMainText(settings,x,y,fill){
+    const outline=settings.strokeEnabled?safeSvgColor(settings.strokeColor,'none'):'none';
+    const outlineWidth=settings.strokeEnabled?Number(settings.strokeWidth):0;
+    if(settings.textDirection!=='vertical'&&!features.curve){
+      return svgText(settings.textInput,x,y,Number(settings.fontSize),fill,Number(settings.rotation),settings.bold?'700':'400',settings.align,outline,outlineWidth,Number(settings.letterSpacing),true,settings.italic);
+    }
+    const size=Number(settings.fontSize),spacing=Number(settings.letterSpacing),weight=settings.bold?'700':'400';
+    if(features.curve&&settings.textDirection!=='vertical'){
+      const glyphs=splitGlyphs(String(settings.textInput).split('\n').join(' '));
+      ctx2.save();ctx2.font=fontSpec(size);
+      const advances=glyphs.map(glyph=>ctx2.measureText(glyph).width+spacing);
+      ctx2.restore();
+      const totalWidth=advances.reduce((sum,value)=>sum+value,0)-spacing,radius=Math.max(60,Number(features.curveRadius)||360);
+      let current=0,result='<g transform="rotate('+Number(settings.rotation)+' '+x+' '+y+')">';
+      glyphs.forEach((glyph,index)=>{
+        const glyphWidth=advances[index]-spacing,theta=(current+glyphWidth/2-totalWidth/2)/radius;
+        const gx=x+radius*Math.sin(theta),gy=y+radius*(Math.cos(theta)-1);
+        result+=svgCharacter(glyph,gx,gy,-theta*180/Math.PI,settings,fill,index,outline,outlineWidth);
+        current+=advances[index];
+      });
+      return result+'</g>';
+    }
+    const columns=String(settings.textInput).split('\n').map(line=>splitGlyphs(line));
+    const columnPitch=size*Number(settings.lineHeight);
+    const heights=columns.map(glyphs=>glyphs.length?size+(glyphs.length-1)*(size+spacing):0);
+    const maxHeight=Math.max(size,...heights),blockWidth=size+Math.max(0,columns.length-1)*columnPitch;
+    const columnXs=columns.map((_,index)=>blockWidth/2-size/2-index*columnPitch);
+    let globalIndex=0,result='<g transform="rotate('+Number(settings.rotation)+' '+x+' '+y+')">';
+    columns.forEach((glyphs,columnIndex)=>{
+      const top=settings.align==='left'?-maxHeight/2:settings.align==='right'?maxHeight/2-heights[columnIndex]:-heights[columnIndex]/2;
+      glyphs.forEach((glyph,glyphIndex)=>{
+        const punctuation='、。，．'.includes(glyph),dash=/^[ー―—–−﹣－…‥]$/u.test(glyph);
+        const gx=x+columnXs[columnIndex]+(punctuation?size*.16:0);
+        const gy=y+top+size/2+glyphIndex*(size+spacing)-(punctuation?size*.16:0);
+        const index=globalIndex++;
+        result+=svgCharacter(glyph,gx,gy,dash?90:0,settings,fill,index,outline,outlineWidth);
+      });
+    });
+    return result+'</g>';
   }
   function exportSVG(){
     const w=canvasEl.width,h=canvasEl.height,s=readSettings(),x=w*Number(s.positionX)/100,y=h*Number(s.positionY)/100;
-    let defs='<defs>';if(s.fillMode==='gradient')defs+='<linearGradient id="myotyoGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="'+s.gradientStart+'"/><stop offset="100%" stop-color="'+s.gradientEnd+'"/></linearGradient>';
-    if(features.texture==='dots')defs+='<pattern id="myotyoTextureDots" width="24" height="24" patternUnits="userSpaceOnUse"><rect width="24" height="24" fill="'+s.fontColor+'"/><circle cx="6" cy="6" r="2" fill="'+features.textureColor+'"/><circle cx="18" cy="18" r="2" fill="'+features.textureColor+'"/></pattern>';
-    if(features.texture==='lines')defs+='<pattern id="myotyoTextureLines" width="24" height="24" patternUnits="userSpaceOnUse"><rect width="24" height="24" fill="'+s.fontColor+'"/><path d="M-4 20 L20 -4 M4 28 L28 4" stroke="'+features.textureColor+'" stroke-width="3"/></pattern>';
-    if(features.texture==='checker')defs+='<pattern id="myotyoTextureChecker" width="24" height="24" patternUnits="userSpaceOnUse"><rect width="24" height="24" fill="'+s.fontColor+'"/><path d="M0 0h12v12H0z M12 12h12v12H12z" fill="'+features.textureColor+'"/></pattern>';
+    let defs='<defs>';
+    if(s.fillMode==='gradient')defs+='<linearGradient id="myotyoGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="'+safeSvgColor(s.gradientStart)+'"/><stop offset="100%" stop-color="'+safeSvgColor(s.gradientEnd,'#6758ff')+'"/></linearGradient>';
+    const patternBase=safeSvgColor(s.fontColor),patternInk=safeSvgColor(features.textureColor,'#ffffff');
+    if(features.texture==='dots')defs+='<pattern id="myotyoTextureDots" width="24" height="24" patternUnits="userSpaceOnUse"><rect width="24" height="24" fill="'+patternBase+'"/><circle cx="6" cy="6" r="2" fill="'+patternInk+'"/><circle cx="18" cy="18" r="2" fill="'+patternInk+'"/></pattern>';
+    if(features.texture==='lines')defs+='<pattern id="myotyoTextureLines" width="24" height="24" patternUnits="userSpaceOnUse"><rect width="24" height="24" fill="'+patternBase+'"/><path d="M-4 20 L20 -4 M4 28 L28 4" stroke="'+patternInk+'" stroke-width="3"/></pattern>';
+    if(features.texture==='checker')defs+='<pattern id="myotyoTextureChecker" width="24" height="24" patternUnits="userSpaceOnUse"><rect width="24" height="24" fill="'+patternBase+'"/><path d="M0 0h12v12H0z M12 12h12v12H12z" fill="'+patternInk+'"/></pattern>';
+    if(s.shadowEnabled)defs+='<filter id="myotyoShadow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur in="SourceAlpha" stdDeviation="'+(Math.max(0,Number(s.shadowBlur)||0)/2)+'" result="blur"/><feOffset in="blur" dx="'+Number(s.shadowX||0)+'" dy="'+Number(s.shadowY||0)+'" result="offsetBlur"/><feFlood flood-color="'+safeSvgColor(s.shadowColor,'#000000')+'" result="shadowColor"/><feComposite in="shadowColor" in2="offsetBlur" operator="in" result="shadow"/><feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge></filter>';
     defs+='</defs>';
     let bg=s.transparent?'':'<rect width="100%" height="100%" fill="'+s.bgColor+'"/>';
     if(backgroundImage){const tmp=document.createElement('canvas');tmp.width=w;tmp.height=h;const t=tmp.getContext('2d'),iw=backgroundImage.naturalWidth,ih=backgroundImage.naturalHeight,mode=$('imageFit').value;
@@ -1471,9 +1548,15 @@ restoreSavedFont();
       bg=bg+'<image x="0" y="0" width="'+w+'" height="'+h+'" href="'+tmp.toDataURL('image/png')+'"/>';
     }
     const textureId={dots:'myotyoTextureDots',lines:'myotyoTextureLines',checker:'myotyoTextureChecker'}[features.texture];
-    let fill=textureId?'url(#'+textureId+')':(s.fillMode==='gradient'?'url(#myotyoGradient)':s.fontColor);
-    let body=svgText(s.textInput,x,y,Number(s.fontSize),fill,Number(s.rotation),s.bold?'700':'400',s.align,s.strokeEnabled?s.strokeColor:'none',s.strokeEnabled?Number(s.strokeWidth):0);
-    layers.forEach(layer=>{if(layer.visible!==false)body+='<g opacity="'+Number(layer.opacity??100)/100+'">'+svgText(layer.text,w*Number(layer.x??50)/100,h*Number(layer.y??50)/100,Number(layer.size)||64,layer.color||'#ffcf33',layer.rotation||0,layer.bold?'700':'400','center',layer.outlineColor||'none',Number(layer.outlineWidth)||0)+'</g>';});
+    let fill=textureId?'url(#'+textureId+')':(s.fillMode==='gradient'?'url(#myotyoGradient)':safeSvgColor(s.fontColor));
+    let mainBody=svgMainText(s,x,y,fill);
+    if(s.shadowEnabled)mainBody='<g filter="url(#myotyoShadow)">'+mainBody+'</g>';
+    let body=mainBody;
+    layers.forEach(layer=>{
+      if(layer.visible===false)return;
+      const opacity=Math.max(0,Math.min(1,Number(layer.opacity??100)/100));
+      body+='<g opacity="'+opacity+'">'+svgText(layer.text,w*Number(layer.x??50)/100,h*Number(layer.y??50)/100,Number(layer.size)||64,safeSvgColor(layer.color,'#ffcf33'),layer.rotation||0,layer.bold?'700':'400','center',layer.outlineColor==='none'?'none':safeSvgColor(layer.outlineColor,'none'),Number(layer.outlineWidth)||0,0,false,!!layer.italic)+'</g>';
+    });
     const svgTextValue='<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'">'+defs+bg+body+'</svg>';
     blobDownload(new Blob([svgTextValue],{type:'image/svg+xml;charset=utf-8'}),'craft-myotyo.svg');status('SVGを出力しました。テキストはベクター文字です（フォントは閲覧端末に依存します）。','success');
   }
