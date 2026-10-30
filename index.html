@@ -1413,19 +1413,39 @@ restoreSavedFont();
   }
   $('plusSaveProject').addEventListener('click',saveProject);
   $('plusLoadProject').addEventListener('change',event=>{
-    const file=event.target.files&&event.target.files[0];if(!file)return;const reader=new FileReader();
-    reader.onload=()=>{try{const data=JSON.parse(reader.result);if(data.format!=='craft-myotyo-project'||!data.settings||!Array.isArray(data.layers))throw new Error('invalid project');
-      applySettings({...DEFAULTS,...data.settings});features={...featureDefaults,...(data.features||{})};layers=data.layers.filter(x=>x&&typeof x.text==='string').slice(0,50);selectedLayer='';
-      backgroundLoadToken++;backgroundImage=null;if(backgroundImageUrl){URL.revokeObjectURL(backgroundImageUrl);backgroundImageUrl=null;}
-      if(typeof data.backgroundImage==='string'&&data.backgroundImage.startsWith('data:image/')&&data.backgroundImage.length<=20000000){
-        const image=new Image();const token=backgroundLoadToken;
-        image.onload=()=>{if(token!==backgroundLoadToken)return;backgroundImage=image;queueRender();status('プロジェクトと背景画像を読み込みました。','success');};
-        image.onerror=()=>status('プロジェクトの背景画像を読み込めませんでした。','error');
-        image.src=data.backgroundImage;
+    const file=event.target.files&&event.target.files[0];if(!file)return;
+    if(file.size>25000000){status('プロジェクトファイルが大きすぎます（25MB以下にしてください）。','error');event.target.value='';return;}
+    const reader=new FileReader();
+    reader.onload=()=>{
+      let historyStarted=false;
+      try{
+        const data=JSON.parse(reader.result);
+        if(data.format!=='craft-myotyo-project'||!data.settings||!Array.isArray(data.layers))throw new Error('invalid project');
+        saveUndoPoint();historyStarted=true;
+        applySettings({...DEFAULTS,...data.settings});
+        features={...featureDefaults,...(data.features||{})};
+        layers=data.layers.filter(x=>x&&typeof x.text==='string').slice(0,50);
+        selectedLayer='';
+        backgroundLoadToken++;backgroundImage=null;
+        if(backgroundImageUrl){URL.revokeObjectURL(backgroundImageUrl);backgroundImageUrl=null;}
+        const hasEmbeddedImage=typeof data.backgroundImage==='string'&&data.backgroundImage.startsWith('data:image/')&&data.backgroundImage.length<=20000000;
+        if(hasEmbeddedImage){
+          const image=new Image();const token=backgroundLoadToken;
+          image.onload=()=>{if(token!==backgroundLoadToken)return;backgroundImage=image;queueRender();status('プロジェクトと背景画像を読み込みました。','success');};
+          image.onerror=()=>status('プロジェクトの背景画像を読み込めませんでした。','error');
+          image.src=data.backgroundImage;
+        }
+        safeWrite(FEATURES_KEY,features);saveLayers();syncFeatureControls();refreshLayerSelect();
+        persistSettings();queueRender();closeUndoPoint();historyStarted=false;updateUndoButtons();
+        status(hasEmbeddedImage?'プロジェクトを読み込み中です。':'プロジェクトを読み込みました。','success');
+      }catch(error){
+        if(historyStarted){closeUndoPoint();updateUndoButtons();}
+        console.error(error);status('プロジェクトファイルを読み込めませんでした。','error');
       }
-      safeWrite(FEATURES_KEY,features);saveLayers();syncFeatureControls();refreshLayerSelect();persistSettings();queueRender();status(data.backgroundImage?'プロジェクトを読み込み中です。':'プロジェクトを読み込みました。','success');
-    }catch(error){console.error(error);status('プロジェクトファイルを読み込めませんでした。','error');}event.target.value='';};
-    reader.onerror=()=>status('ファイルの読み込みに失敗しました。','error');reader.readAsText(file);
+      event.target.value='';
+    };
+    reader.onerror=()=>status('ファイルを読み込めませんでした。','error');
+    reader.readAsText(file);
   });
   function escXml(value){return String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
   function svgText(text,x,y,size,color,rotation,weight,align,outline,outlineWidth){
