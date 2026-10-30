@@ -1092,6 +1092,317 @@ function init(){
 }
 init();
 restoreSavedFont();
+
+/* ===== Studio Plus extension ===== */
+(function(){
+  'use strict';
+  const FEATURES_KEY='craftMyotyo.features.v1';
+  const LAYERS_KEY='craftMyotyo.layers.v1';
+  const featureDefaults={curve:false,curveRadius:360,charEnabled:false,charIndex:1,charColor:'#ff3b70',charScale:100,charRotation:0,
+    outer:false,outerColor:'#111111',outerWidth:12,extrude:false,extrudeColor:'#343a54',extrudeDepth:8,extrudeAngle:45,
+    texture:'none',textureColor:'#ffffff',grid:false,center:false,snap:false};
+  let features={...featureDefaults,...safeRead(FEATURES_KEY,{})};
+  let layers=safeRead(LAYERS_KEY,[]);
+  if(!Array.isArray(layers))layers=[];
+  layers=layers.filter(x=>x&&typeof x.text==='string').slice(0,50);
+  let selectedLayer='';
+  let zoom=0;
+  let layerCounter=0;
+  const controls=document.getElementById('controls');
+  const nav=document.getElementById('settingsTabs');
+  const panels=Array.from(controls.querySelectorAll(':scope > .panel'));
+  const textPanel=panels[1],decoratePanel=panels[2];
+  const style=document.createElement('style');
+  style.textContent='.settings-tabs{grid-template-columns:repeat(7,minmax(0,1fr))!important}#stage{position:relative}#guideOverlay{position:absolute;pointer-events:none;display:none;overflow:visible;z-index:3}#guideOverlay line{stroke:#2867e8;stroke-width:2;stroke-dasharray:9 7;vector-effect:non-scaling-stroke;opacity:.7}.plus-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.plus-full{grid-column:1/-1}.plus-actions{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.plus-actions .btn{flex:1;min-width:0}.plus-note{font-size:.72rem;color:var(--muted);margin:5px 0}.plus-layer-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.plus-layer-fields .full{grid-column:1/-1}.stage-tools{display:flex;gap:4px;align-items:center}.stage-tools .btn{padding:5px 7px;font-size:.72rem}';
+  document.head.appendChild(style);
+  function addTab(id,label){
+    const b=document.createElement('button');b.className='settings-tab';b.id='tab-'+id;b.type='button';b.setAttribute('role','tab');b.setAttribute('aria-selected','false');b.setAttribute('aria-controls','settings-'+id);b.dataset.tab=id;b.textContent=label;
+    b.addEventListener('click',()=>activateSettingsTab(id));
+    b.addEventListener('keydown',event=>tabKey(event,b));
+    nav.appendChild(b);return b;
+  }
+  function tabKey(event,button){
+    const list=Array.from(nav.querySelectorAll('.settings-tab'));let i=list.indexOf(button),next=i;
+    if(event.key==='ArrowRight')next=(i+1)%list.length;else if(event.key==='ArrowLeft')next=(i-1+list.length)%list.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=list.length-1;else return;
+    event.preventDefault();activateSettingsTab(list[next].dataset.tab,true);
+  }
+  addTab('layers','レイヤー');addTab('tools','便利');
+  function makePanel(id,title,html){
+    const panel=document.createElement('div');panel.className='panel';panel.id='settings-'+id;panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby','tab-'+id);panel.hidden=true;
+    panel.innerHTML='<h2>'+title+'</h2>'+html;controls.appendChild(panel);return panel;
+  }
+  textPanel.insertAdjacentHTML('beforeend',
+    '<div class="sep"></div><h2>追加の文字表現 <span>カーブ・1文字編集</span></h2>'+
+    '<label class="check"><input type="checkbox" id="plusCurve">曲線に沿って文字を配置</label>'+
+    '<div id="plusCurveControls" class="control"><label for="plusCurveRadius">カーブの半径</label><input type="range" id="plusCurveRadius" min="80" max="1200" step="10" value="'+features.curveRadius+'"><div class="value" id="plusCurveRadiusVal"></div><p class="plus-note">横書きに適用。大きいほど緩やかなカーブになります。</p></div>'+
+    '<label class="check"><input type="checkbox" id="plusChar">1文字だけ個別に調整</label>'+
+    '<div id="plusCharControls" class="plus-grid"><div><label for="plusCharIndex">文字番号（行ごと）</label><input type="number" id="plusCharIndex" min="1" max="500" value="'+features.charIndex+'"></div><div><label for="plusCharColor">文字色</label><input type="color" id="plusCharColor" value="'+features.charColor+'"></div><div><label for="plusCharScale">拡大・縮小</label><input type="range" id="plusCharScale" min="50" max="200" value="'+features.charScale+'"><div class="value" id="plusCharScaleVal"></div></div><div><label for="plusCharRotation">回転</label><input type="range" id="plusCharRotation" min="-180" max="180" value="'+features.charRotation+'"><div class="value" id="plusCharRotationVal"></div></div></div>'
+  );
+  decoratePanel.insertAdjacentHTML('beforeend',
+    '<div class="sep"></div><h2>追加の装飾 <span>二重フチ・立体・模様</span></h2>'+
+    '<label class="check"><input type="checkbox" id="plusOuter">二重フチを付ける</label><div class="plus-grid"><div><label for="plusOuterColor">外側のフチ色</label><input id="plusOuterColor" type="color" value="'+features.outerColor+'"></div><div><label for="plusOuterWidth">外側の太さ</label><input id="plusOuterWidth" type="range" min="1" max="40" value="'+features.outerWidth+'"><div class="value" id="plusOuterWidthVal"></div></div></div>'+
+    '<label class="check"><input type="checkbox" id="plusExtrude">立体・押し出し効果</label><div class="plus-grid"><div><label for="plusExtrudeColor">立体部分の色</label><input id="plusExtrudeColor" type="color" value="'+features.extrudeColor+'"></div><div><label for="plusExtrudeDepth">奥行き</label><input id="plusExtrudeDepth" type="range" min="1" max="30" value="'+features.extrudeDepth+'"><div class="value" id="plusExtrudeDepthVal"></div></div><div class="plus-full"><label for="plusExtrudeAngle">立体の方向</label><input id="plusExtrudeAngle" type="range" min="0" max="359" value="'+features.extrudeAngle+'"><div class="value" id="plusExtrudeAngleVal"></div></div></div>'+
+    '<div class="sep"></div><div><label for="plusTexture">文字のテクスチャ</label><select id="plusTexture"><option value="none">なし</option><option value="dots">ドット</option><option value="lines">斜線</option><option value="checker">チェック</option></select></div><div><label for="plusTextureColor">模様の色</label><input id="plusTextureColor" type="color" value="'+features.textureColor+'"></div>'
+  );
+  const layersPanel=makePanel('layers','レイヤー管理 <span>追加文字を重ねて編集</span>',
+    '<label for="plusLayerSelect">レイヤー一覧</label><select id="plusLayerSelect"><option value="">レイヤーを選択</option></select>'+
+    '<div class="plus-actions"><button class="btn small" id="plusAddLayer">＋追加</button><button class="btn small" id="plusCloneLayer">複製</button><button class="btn small danger" id="plusDeleteLayer">削除</button></div>'+
+    '<div class="plus-actions"><button class="btn small" id="plusLayerUp">↑ 前面へ</button><button class="btn small" id="plusLayerDown">↓ 背面へ</button></div><div class="sep"></div>'+
+    '<div class="plus-layer-fields"><div class="full"><label for="plusLayerName">レイヤー名</label><input id="plusLayerName" type="text" maxlength="40"></div>'+
+    '<div class="full"><label for="plusLayerText">テキスト</label><textarea id="plusLayerText" rows="2"></textarea></div>'+
+    '<div><label for="plusLayerX">横位置</label><input id="plusLayerX" type="range" min="0" max="100"></div><div><label for="plusLayerY">縦位置</label><input id="plusLayerY" type="range" min="0" max="100"></div>'+
+    '<div><label for="plusLayerSize">文字サイズ</label><input id="plusLayerSize" type="range" min="12" max="360"></div><div><label for="plusLayerRotation">回転</label><input id="plusLayerRotation" type="range" min="-180" max="180"></div>'+
+    '<div><label for="plusLayerColor">文字色</label><input id="plusLayerColor" type="color"></div><div><label for="plusLayerOpacity">不透明度</label><input id="plusLayerOpacity" type="range" min="10" max="100"></div>'+
+    '<label class="check full"><input id="plusLayerVisible" type="checkbox">表示する</label></div><p class="plus-note">レイヤーごとに文字・位置・サイズ・色・回転・不透明度を設定できます。</p>'
+  );
+  const toolsPanel=makePanel('tools','制作ツール <span>テンプレート・ガイド・保存</span>',
+    '<label for="plusTemplate">デザインテンプレート</label><select id="plusTemplate"><option value="">選択してください…</option><option value="thumbnail">動画サムネイル</option><option value="poster">縦型ポスター</option><option value="neon">ネオンタイトル</option><option value="minimal">ミニマル</option><option value="comic">マンガ見出し</option></select><button class="btn small" id="plusApplyTemplate">テンプレートを適用</button>'+
+    '<div class="sep"></div><label class="check"><input type="checkbox" id="plusGrid">グリッドガイドを表示</label><label class="check"><input type="checkbox" id="plusCenter">中央ガイドを表示</label><label class="check"><input type="checkbox" id="plusSnap">位置を5%刻みでスナップ</label>'+
+    '<div class="sep"></div><div class="plus-actions"><button class="btn small" id="plusZoomOut">− 縮小</button><button class="btn small" id="plusZoomFit">全体表示</button><button class="btn small" id="plusZoomIn">＋ 拡大</button></div><div class="value" id="plusZoomLabel">画面に合わせる</div>'+
+    '<div class="sep"></div><div class="plus-actions"><button class="btn" id="plusSvg">SVGを書き出す</button><button class="btn" id="plusSaveProject">プロジェクト保存</button></div>'+
+    '<label for="plusLoadProject">プロジェクトを開く（JSON）</label><input type="file" id="plusLoadProject" accept=".json,application/json"><p class="plus-note">Ctrl/Cmd+Sでプロジェクト保存、Ctrl/Cmd+Shift+EでSVG出力、Ctrl/Cmd+0で全体表示。</p>'
+  );
+  const workspace=document.getElementById('workspace');
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.id='guideOverlay';svg.setAttribute('aria-hidden','true');document.getElementById('stage').appendChild(svg);
+  workspace.querySelector('.workspace-actions').insertAdjacentHTML('afterbegin','<div class="stage-tools"><button class="btn small" id="plusTopOut" aria-label="縮小">−</button><button class="btn small" id="plusTopFit">全体</button><button class="btn small" id="plusTopIn" aria-label="拡大">＋</button></div>');
+  const canvasEl=document.getElementById('canvas'),ctx2=canvasEl.getContext('2d');
+  function activateSettingsTab(name,focusButton){
+    const known=['background','text','decorate','styles','save','layers','tools'];let index=known.indexOf(name);if(index<0)index=0;
+    const buttons=Array.from(nav.querySelectorAll('.settings-tab')),allPanels=Array.from(controls.querySelectorAll(':scope > .panel'));
+    buttons.forEach((b,i)=>{const on=i===index;b.classList.toggle('active',on);b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;if(on&&focusButton)b.focus();});
+    allPanels.forEach((p,i)=>{p.id='settings-'+known[i];p.setAttribute('role','tabpanel');p.setAttribute('aria-labelledby','tab-'+known[i]);p.hidden=i!==index;p.classList.toggle('active',i===index);});
+  }
+  const plusTabs=Array.from(nav.querySelectorAll('.settings-tab')).slice(-2);
+  plusTabs.forEach(button=>button.addEventListener('keydown',event=>tabKey(event,button)));
+  const originalDraw=drawSpacedText;
+  function texturePattern(){
+    if(features.texture==='none')return null;
+    const tile=document.createElement('canvas');tile.width=24;tile.height=24;const t=tile.getContext('2d');
+    t.fillStyle=$('fontColor').value;t.fillRect(0,0,24,24);t.fillStyle=features.textureColor;t.strokeStyle=features.textureColor;t.lineWidth=3;
+    if(features.texture==='dots'){t.beginPath();t.arc(6,6,2,0,Math.PI*2);t.arc(18,18,2,0,Math.PI*2);t.fill();}
+    else if(features.texture==='lines'){t.beginPath();t.moveTo(-4,20);t.lineTo(20,-4);t.moveTo(4,28);t.lineTo(28,4);t.stroke();}
+    else{t.fillRect(0,0,12,12);t.fillRect(12,12,12,12);}
+    return ctx2.createPattern(tile,'repeat');
+  }
+  drawSpacedText=function(text,x,y,spacing,stroke){
+    const glyphs=splitGlyphs(text),target=Number(features.charIndex)-1;
+    const pattern=(!stroke&&features.texture!=='none')?texturePattern():null;
+    if(stroke&&features.outer){
+      ctx2.save();ctx2.lineWidth+=Number(features.outerWidth)*2;ctx2.strokeStyle=features.outerColor;
+      originalDraw(text,x,y,spacing,true);ctx2.restore();
+    }
+    if(!stroke&&features.extrude&&ctx2.filter==='none'&&ctx2.globalAlpha>.98){
+      const depth=Number(features.extrudeDepth),angle=Number(features.extrudeAngle)*Math.PI/180;
+      ctx2.save();ctx2.fillStyle=features.extrudeColor;
+      for(let d=depth;d>=1;d--)originalDraw(text,x+Math.cos(angle)*d,y+Math.sin(angle)*d,spacing,false);
+      ctx2.restore();
+    }
+    if(!features.charEnabled&&!pattern){originalDraw(text,x,y,spacing,stroke);return;}
+    ctx2.save();let cursor=x;
+    glyphs.forEach((glyph,i)=>{
+      const w=ctx2.measureText(glyph).width,active=features.charEnabled&&i===target;
+      if(active){
+        ctx2.save();ctx2.translate(cursor+w/2,y);ctx2.rotate(Number(features.charRotation)*Math.PI/180);
+        const scale=Number(features.charScale)/100;ctx2.scale(scale,scale);
+        if(!stroke)ctx2.fillStyle=features.charColor;
+        if(stroke)ctx2.strokeText(glyph,-w/2,0);else ctx2.fillText(glyph,-w/2,0);
+        ctx2.restore();
+      }else{
+        if(!stroke&&pattern)ctx2.fillStyle=pattern;
+        if(stroke)ctx2.strokeText(glyph,cursor,y);else ctx2.fillText(glyph,cursor,y);
+      }
+      cursor+=w+spacing;
+    });
+    ctx2.restore();
+  };
+  const originalVerticalGlyph=drawVerticalGlyph;
+  drawVerticalGlyph=function(glyph,x,y,stroke,fontSize){
+    if(stroke&&features.outer){ctx2.save();ctx2.lineWidth+=Number(features.outerWidth)*2;ctx2.strokeStyle=features.outerColor;originalVerticalGlyph(glyph,x,y,true,fontSize);ctx2.restore();}
+    if(!stroke&&features.extrude&&ctx2.filter==='none'&&ctx2.globalAlpha>.98){const dep=Number(features.extrudeDepth),a=Number(features.extrudeAngle)*Math.PI/180;ctx2.save();ctx2.fillStyle=features.extrudeColor;for(let d=dep;d>=1;d--)originalVerticalGlyph(glyph,x+Math.cos(a)*d,y+Math.sin(a)*d,false,fontSize);ctx2.restore();}
+    if(!stroke&&features.texture!=='none'){const p=texturePattern();if(p){ctx2.save();ctx2.fillStyle=p;originalVerticalGlyph(glyph,x,y,false,fontSize);ctx2.restore();return;}}
+    originalVerticalGlyph(glyph,x,y,stroke,fontSize);
+  };
+  function drawCurve(){
+    const text=$('textInput').value;if(!text.trim())return;
+    const glyphs=splitGlyphs(text.split('\n').join(' ')),fontSize=Number($('fontSize').value),spacing=Number($('letterSpacing').value);
+    ctx2.save();ctx2.font=fontSpec(fontSize);ctx2.textAlign='center';ctx2.textBaseline='middle';ctx2.lineJoin='round';ctx2.lineCap='round';
+    const widths=glyphs.map(g=>ctx2.measureText(g).width+spacing),length=widths.reduce((a,b)=>a+b,0)-spacing,radius=Math.max(60,Number(features.curveRadius));
+    const total=Math.min(Math.PI*1.8,length/radius),anchorX=canvasEl.width*Number($('positionX').value)/100,anchorY=canvasEl.height*Number($('positionY').value)/100;
+    ctx2.translate(anchorX,anchorY);ctx2.rotate(Number($('rotation').value)*Math.PI/180);
+    let current=0;
+    glyphs.forEach((glyph,i)=>{
+      const w=widths[i]-spacing,theta=(current+w/2-length/2)/radius,active=features.charEnabled&&i===Number(features.charIndex)-1;
+      ctx2.save();ctx2.translate(radius*Math.sin(theta),radius*(Math.cos(theta)-1));ctx2.rotate(-theta);
+      if($('shadowEnabled').checked){ctx2.save();ctx2.filter=Number($('shadowBlur').value)>0?'blur('+Number($('shadowBlur').value)+'px)':'none';ctx2.globalAlpha=.82;ctx2.fillStyle=$('shadowColor').value;ctx2.fillText(glyph,Number($('shadowX').value),Number($('shadowY').value));ctx2.restore();}
+      if(features.extrude){const d=Number(features.extrudeDepth),a=Number(features.extrudeAngle)*Math.PI/180;ctx2.fillStyle=features.extrudeColor;for(let k=d;k>0;k--)ctx2.fillText(glyph,Math.cos(a)*k,Math.sin(a)*k);}
+      if(features.outer){ctx2.lineWidth=(Number($('strokeWidth').value)+Number(features.outerWidth))*2;ctx2.strokeStyle=features.outerColor;ctx2.strokeText(glyph,0,0);}
+      if($('strokeEnabled').checked){ctx2.lineWidth=Number($('strokeWidth').value)*2;ctx2.strokeStyle=$('strokeColor').value;ctx2.strokeText(glyph,0,0);}
+      ctx2.fillStyle=active?features.charColor:($('fillMode').value==='gradient'?(function(){const g=ctx2.createLinearGradient(-length/2,0,length/2,0);g.addColorStop(0,$('gradientStart').value);g.addColorStop(1,$('gradientEnd').value);return g;})():texturePattern()||$('fontColor').value);
+      if(active){ctx2.rotate(Number(features.charRotation)*Math.PI/180);const sc=Number(features.charScale)/100;ctx2.scale(sc,sc);}
+      ctx2.fillText(glyph,0,0);ctx2.restore();current+=widths[i];
+    });
+    ctx2.restore();
+  }
+  const originalRender=render;
+  render=function(){
+    const text=$('textInput').value,curved=features.curve&&$('textDirection').value!=='vertical'&&text.trim().length>0;
+    if(curved){$('textInput').value='';originalRender();$('textInput').value=text;drawCurve();}
+    else originalRender();
+    drawLayers();updateGuides();
+    hasDrawn=true;$('downloadBtn').disabled=false;
+  };
+  function drawLayers(){
+    layers.forEach(layer=>{
+      if(layer.visible===false||!layer.text)return;
+      ctx2.save();ctx2.globalAlpha=Math.max(.05,Math.min(1,Number(layer.opacity??100)/100));
+      const size=Number(layer.size)||64;ctx2.font=(layer.italic?'italic ':'')+(layer.bold?'700 ':'400 ')+size+'px '+(customFont?'"StudioUploadedFont"':'system-ui, sans-serif');
+      ctx2.textAlign='center';ctx2.textBaseline='middle';ctx2.lineJoin='round';
+      ctx2.translate(canvasEl.width*Number(layer.x??50)/100,canvasEl.height*Number(layer.y??50)/100);ctx2.rotate(Number(layer.rotation||0)*Math.PI/180);
+      const lines=String(layer.text).split('\n'),gap=size*1.18,start=-(lines.length-1)*gap/2;
+      lines.forEach((line,i)=>{if(layer.outlineWidth){ctx2.lineWidth=Number(layer.outlineWidth)*2;ctx2.strokeStyle=layer.outlineColor||'#fff';ctx2.strokeText(line,0,start+i*gap);}ctx2.fillStyle=layer.color||'#ffcf33';ctx2.fillText(line,0,start+i*gap);});
+      ctx2.restore();
+    });
+  }
+  function saveLayers(){safeWrite(LAYERS_KEY,layers);}
+  function fillLayerFields(layer){
+    $('plusLayerName').value=layer?.name||'';$('plusLayerText').value=layer?.text||'';
+    $('plusLayerX').value=layer?.x??50;$('plusLayerY').value=layer?.y??50;$('plusLayerSize').value=layer?.size??64;
+    $('plusLayerRotation').value=layer?.rotation??0;$('plusLayerColor').value=layer?.color||'#ffcf33';$('plusLayerOpacity').value=layer?.opacity??100;$('plusLayerVisible').checked=layer?.visible!==false;
+  }
+  function refreshLayerSelect(){
+    const select=$('plusLayerSelect');select.replaceChildren(new Option('レイヤーを選択',''));
+    layers.forEach((layer,i)=>select.add(new Option((layer.visible===false?'◌ ':'● ')+(layer.name||'レイヤー '+(i+1)),layer.id)));
+    select.value=selectedLayer;fillLayerFields(layers.find(x=>x.id===selectedLayer));
+  }
+  function updateLayer(){
+    const layer=layers.find(x=>x.id===selectedLayer);if(!layer)return;
+    Object.assign(layer,{name:$('plusLayerName').value.trim()||'レイヤー',text:$('plusLayerText').value,x:Number($('plusLayerX').value),y:Number($('plusLayerY').value),size:Number($('plusLayerSize').value),rotation:Number($('plusLayerRotation').value),color:$('plusLayerColor').value,opacity:Number($('plusLayerOpacity').value),visible:$('plusLayerVisible').checked});
+    saveLayers();refreshLayerSelect();queueRender();
+  }
+  function addLayer(clone){
+    const source=clone?layers.find(x=>x.id===selectedLayer):null;
+    const layer=source?{...source}:{name:'テキストレイヤー '+(layers.length+1),text:$('textInput').value||'新しい文字',x:Number($('positionX').value),y:Number($('positionY').value),size:Number($('fontSize').value),rotation:Number($('rotation').value),color:$('fontColor').value,opacity:100,visible:true,bold:$('bold').checked,italic:$('italic').checked,outlineWidth:$('strokeEnabled').checked?Number($('strokeWidth').value):0,outlineColor:$('strokeColor').value};
+    layer.id='layer-'+Date.now().toString(36)+'-'+(++layerCounter);if(source)layer.name=(source.name||'レイヤー')+' のコピー';
+    layers.push(layer);selectedLayer=layer.id;saveLayers();refreshLayerSelect();queueRender();status('レイヤーを追加しました。','success');
+  }
+  $('plusLayerSelect').addEventListener('change',()=>{selectedLayer=$('plusLayerSelect').value;refreshLayerSelect();});
+  $('plusAddLayer').addEventListener('click',()=>addLayer(false));$('plusCloneLayer').addEventListener('click',()=>addLayer(true));
+  $('plusDeleteLayer').addEventListener('click',()=>{const i=layers.findIndex(x=>x.id===selectedLayer);if(i<0)return;layers.splice(i,1);selectedLayer='';saveLayers();refreshLayerSelect();queueRender();});
+  function reorderLayer(delta){const i=layers.findIndex(x=>x.id===selectedLayer);if(i<0)return;const j=Math.max(0,Math.min(layers.length-1,i+delta));const item=layers.splice(i,1)[0];layers.splice(j,0,item);saveLayers();refreshLayerSelect();queueRender();}
+  $('plusLayerUp').addEventListener('click',()=>reorderLayer(1));$('plusLayerDown').addEventListener('click',()=>reorderLayer(-1));
+  ['plusLayerName','plusLayerText','plusLayerX','plusLayerY','plusLayerSize','plusLayerRotation','plusLayerColor','plusLayerOpacity','plusLayerVisible'].forEach(id=>{const el=$(id);el.addEventListener('input',updateLayer);el.addEventListener('change',updateLayer);});
+  function syncFeatureControls(){
+    $('plusCurve').checked=features.curve;$('plusCurveRadius').value=features.curveRadius;$('plusCurveRadiusVal').textContent=features.curveRadius+' px';$('plusCurveControls').hidden=!features.curve;
+    $('plusChar').checked=features.charEnabled;$('plusCharIndex').value=features.charIndex;$('plusCharColor').value=features.charColor;$('plusCharScale').value=features.charScale;$('plusCharRotation').value=features.charRotation;
+    $('plusCharControls').hidden=!features.charEnabled;$('plusCharScaleVal').textContent=features.charScale+'%';$('plusCharRotationVal').textContent=features.charRotation+'°';
+    $('plusOuter').checked=features.outer;$('plusOuterColor').value=features.outerColor;$('plusOuterWidth').value=features.outerWidth;$('plusOuterWidthVal').textContent=features.outerWidth+' px';
+    $('plusExtrude').checked=features.extrude;$('plusExtrudeColor').value=features.extrudeColor;$('plusExtrudeDepth').value=features.extrudeDepth;$('plusExtrudeAngle').value=features.extrudeAngle;
+    $('plusExtrudeDepthVal').textContent=features.extrudeDepth+' px';$('plusExtrudeAngleVal').textContent=features.extrudeAngle+'°';$('plusTexture').value=features.texture;$('plusTextureColor').value=features.textureColor;
+    $('plusGrid').checked=features.grid;$('plusCenter').checked=features.center;$('plusSnap').checked=features.snap;
+  }
+  const featureBindings={plusCurve:['curve',Boolean],plusCurveRadius:['curveRadius',Number],plusChar:['charEnabled',Boolean],plusCharIndex:['charIndex',Number],plusCharColor:['charColor',String],plusCharScale:['charScale',Number],plusCharRotation:['charRotation',Number],plusOuter:['outer',Boolean],plusOuterColor:['outerColor',String],plusOuterWidth:['outerWidth',Number],plusExtrude:['extrude',Boolean],plusExtrudeColor:['extrudeColor',String],plusExtrudeDepth:['extrudeDepth',Number],plusExtrudeAngle:['extrudeAngle',Number],plusTexture:['texture',String],plusTextureColor:['textureColor',String],plusGrid:['grid',Boolean],plusCenter:['center',Boolean],plusSnap:['snap',Boolean]};
+  Object.entries(featureBindings).forEach(([id,entry])=>{
+    const el=$(id);el.addEventListener('input',()=>{features[entry[0]]=entry[1](el.type==='checkbox'?el.checked:el.value);safeWrite(FEATURES_KEY,features);syncFeatureControls();queueRender();updateGuides();});
+    el.addEventListener('change',()=>{features[entry[0]]=entry[1](el.type==='checkbox'?el.checked:el.value);safeWrite(FEATURES_KEY,features);syncFeatureControls();queueRender();updateGuides();});
+  });
+  function zoomApply(value){
+    zoom=value;
+    if(value===0){canvasEl.style.width='';canvasEl.style.height='';canvasEl.style.maxWidth='';canvasEl.style.maxHeight='';$('plusZoomLabel').textContent='画面に合わせる';}
+    else{canvasEl.style.width=(canvasEl.width*value/100)+'px';canvasEl.style.height=(canvasEl.height*value/100)+'px';canvasEl.style.maxWidth='none';canvasEl.style.maxHeight='none';$('plusZoomLabel').textContent=value+'%';}
+    updateGuides();
+  }
+  function zoomStep(delta){zoomApply(Math.max(25,Math.min(200,(zoom||100)+delta)));}
+  ['plusZoomIn','plusTopIn'].forEach(id=>$(id).addEventListener('click',()=>zoomStep(10)));
+  ['plusZoomOut','plusTopOut'].forEach(id=>$(id).addEventListener('click',()=>zoomStep(-10)));
+  ['plusZoomFit','plusTopFit'].forEach(id=>$(id).addEventListener('click',()=>zoomApply(0)));
+  function updateGuides(){
+    const stage=$('stage'),overlay=$('guideOverlay'),show=features.grid||features.center;
+    if(!show){overlay.style.display='none';return;}
+    const a=canvasEl.getBoundingClientRect(),b=stage.getBoundingClientRect();
+    overlay.style.display='block';overlay.style.left=(a.left-b.left+stage.scrollLeft-stage.clientLeft)+'px';overlay.style.top=(a.top-b.top+stage.scrollTop-stage.clientTop)+'px';
+    overlay.style.width=a.width+'px';overlay.style.height=a.height+'px';overlay.setAttribute('viewBox','0 0 '+canvasEl.width+' '+canvasEl.height);overlay.replaceChildren();
+    const ns='http://www.w3.org/2000/svg';
+    function line(x1,y1,x2,y2){const el=document.createElementNS(ns,'line');el.setAttribute('x1',x1);el.setAttribute('y1',y1);el.setAttribute('x2',x2);el.setAttribute('y2',y2);overlay.appendChild(el);}
+    if(features.grid)for(let i=1;i<10;i++){line(canvasEl.width*i/10,0,canvasEl.width*i/10,canvasEl.height);line(0,canvasEl.height*i/10,canvasEl.width,canvasEl.height*i/10);}
+    if(features.center){line(canvasEl.width/2,0,canvasEl.width/2,canvasEl.height);line(0,canvasEl.height/2,canvasEl.width,canvasEl.height/2);}
+  }
+  $('stage').addEventListener('scroll',updateGuides,{passive:true});window.addEventListener('resize',updateGuides);
+  function applyTemplate(){
+    const key=$('plusTemplate').value;if(!key){status('テンプレートを選択してください。','error');return;}
+    const items={
+      thumbnail:{preset:'1280x720',fontSize:'118',fontColor:'#ffffff',bold:true,strokeEnabled:true,strokeColor:'#22283a',strokeWidth:'8',shadowEnabled:true,shadowBlur:'8',shadowX:'3',shadowY:'5',positionX:'50',positionY:'50',align:'center'},
+      poster:{preset:'1080x1920',fontSize:'150',fontColor:'#fff3d6',bold:true,strokeEnabled:true,strokeColor:'#633a35',strokeWidth:'5',shadowEnabled:true,textDirection:'vertical',align:'center'},
+      neon:{preset:'1280x720',fontColor:'#ffffff',bold:true,strokeEnabled:true,strokeColor:'#ff2bd6',strokeWidth:'5',shadowEnabled:true,shadowColor:'#a000ff',shadowBlur:'30',shadowX:'0',shadowY:'0'},
+      minimal:{preset:'1280x720',fontColor:'#20232b',bold:false,strokeEnabled:false,shadowEnabled:false,positionX:'50',positionY:'50'},
+      comic:{preset:'1280x720',fontColor:'#fff82e',bold:true,strokeEnabled:true,strokeColor:'#101010',strokeWidth:'10',rotation:'-4'}
+    };
+    saveUndoPoint();applySettings({...readSettings(),...items[key]});closeUndoPoint();
+    if(key==='neon'){features.outer=true;features.outerColor='#4b176e';features.outerWidth=8;features.extrude=false;}
+    if(key==='comic'){features.outer=true;features.outerColor='#ed3f2e';features.outerWidth=8;features.extrude=true;features.extrudeColor='#242424';features.extrudeDepth=9;}
+    safeWrite(FEATURES_KEY,features);syncFeatureControls();status('テンプレートを適用しました。','success');
+  }
+  $('plusApplyTemplate').addEventListener('click',applyTemplate);
+  function blobDownload(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);}
+  function saveProject(){
+    const data={format:'craft-myotyo-project',version:1,settings:readSettings(),features:features,layers:layers};
+    blobDownload(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'craft-myotyo-project.json');status('プロジェクトをJSONで保存しました。','success');
+  }
+  $('plusSaveProject').addEventListener('click',saveProject);
+  $('plusLoadProject').addEventListener('change',event=>{
+    const file=event.target.files&&event.target.files[0];if(!file)return;const reader=new FileReader();
+    reader.onload=()=>{try{const data=JSON.parse(reader.result);if(data.format!=='craft-myotyo-project'||!data.settings||!Array.isArray(data.layers))throw new Error('invalid project');
+      applySettings({...DEFAULTS,...data.settings});features={...featureDefaults,...(data.features||{})};layers=data.layers.filter(x=>x&&typeof x.text==='string').slice(0,50);selectedLayer='';
+      safeWrite(FEATURES_KEY,features);saveLayers();syncFeatureControls();refreshLayerSelect();queueRender();status('プロジェクトを読み込みました。','success');
+    }catch(error){console.error(error);status('プロジェクトファイルを読み込めませんでした。','error');}event.target.value='';};
+    reader.onerror=()=>status('ファイルの読み込みに失敗しました。','error');reader.readAsText(file);
+  });
+  function escXml(value){return String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
+  function svgText(text,x,y,size,color,rotation,weight,align,outline,outlineWidth){
+    const anchor=align==='left'?'start':align==='right'?'end':'middle';
+    const lines=String(text).split('\n'),gap=size*Number($('lineHeight').value),spans=lines.map((v,i)=>'<tspan x="'+x+'" dy="'+(i===0?-(lines.length-1)*gap/2:gap)+'">'+escXml(v)+'</tspan>').join('');
+    const transform='rotate('+Number(rotation||0)+' '+x+' '+y+')';
+    let str='';
+    if(outlineWidth>0)str+='<text x="'+x+'" y="'+y+'" transform="'+transform+'" text-anchor="'+anchor+'" dominant-baseline="middle" font-family="sans-serif" font-size="'+size+'" font-weight="'+weight+'" fill="none" stroke="'+outline+'" stroke-width="'+outlineWidth*2+'" stroke-linejoin="round">'+spans+'</text>';
+    str+='<text x="'+x+'" y="'+y+'" transform="'+transform+'" text-anchor="'+anchor+'" dominant-baseline="middle" font-family="sans-serif" font-size="'+size+'" font-weight="'+weight+'" fill="'+color+'">'+spans+'</text>';return str;
+  }
+  function exportSVG(){
+    const w=canvasEl.width,h=canvasEl.height,s=readSettings(),x=w*Number(s.positionX)/100,y=h*Number(s.positionY)/100;
+    let defs='';if(s.fillMode==='gradient')defs='<defs><linearGradient id="myotyoGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="'+s.gradientStart+'"/><stop offset="100%" stop-color="'+s.gradientEnd+'"/></linearGradient></defs>';
+    let bg=s.transparent?'':'<rect width="100%" height="100%" fill="'+s.bgColor+'"/>';
+    if(backgroundImage){const tmp=document.createElement('canvas');tmp.width=w;tmp.height=h;const t=tmp.getContext('2d'),iw=backgroundImage.naturalWidth,ih=backgroundImage.naturalHeight,mode=$('imageFit').value;
+      if(mode==='stretch')t.drawImage(backgroundImage,0,0,w,h);else{const scale=mode==='contain'?Math.min(w/iw,h/ih):Math.max(w/iw,h/ih),dw=iw*scale,dh=ih*scale;t.drawImage(backgroundImage,(w-dw)/2,(h-dh)/2,dw,dh);}
+      bg='<image x="0" y="0" width="'+w+'" height="'+h+'" href="'+tmp.toDataURL('image/png')+'"/>'+bg;
+    }
+    let fill=s.fillMode==='gradient'?'url(#myotyoGradient)':s.fontColor;
+    let body=svgText(s.textInput,x,y,Number(s.fontSize),fill,Number(s.rotation),s.bold?'700':'400',s.align,s.strokeEnabled?s.strokeColor:'none',s.strokeEnabled?Number(s.strokeWidth):0);
+    layers.forEach(layer=>{if(layer.visible!==false)body+='<g opacity="'+Number(layer.opacity??100)/100+'">'+svgText(layer.text,w*Number(layer.x??50)/100,h*Number(layer.y??50)/100,Number(layer.size)||64,layer.color||'#ffcf33',layer.rotation||0,layer.bold?'700':'400','center',layer.outlineColor||'none',Number(layer.outlineWidth)||0)+'</g>';});
+    const svgTextValue='<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'">'+defs+bg+body+'</svg>';
+    blobDownload(new Blob([svgTextValue],{type:'image/svg+xml;charset=utf-8'}),'craft-myotyo.svg');status('SVGを出力しました。テキストはベクター文字です（フォントは閲覧端末に依存します）。','success');
+  }
+  $('plusSvg').addEventListener('click',exportSVG);
+  document.addEventListener('keydown',event=>{
+    const cmd=event.ctrlKey||event.metaKey;if(cmd&&event.key.toLowerCase()==='s'){event.preventDefault();saveProject();}
+    else if(cmd&&event.shiftKey&&event.key.toLowerCase()==='e'){event.preventDefault();exportSVG();}
+    else if(cmd&&event.key==='0'){event.preventDefault();zoomApply(0);}
+  });
+  function maybeSnap(){
+    if(!features.snap)return;
+    ['positionX','positionY'].forEach(id=>{const el=$(id);el.value=String(Math.round(Number(el.value)/5)*5);});
+  }
+  ['positionX','positionY'].forEach(id=>$(id).addEventListener('change',()=>{maybeSnap();queueRender();}));
+  $('plusSnap').addEventListener('change',()=>{features.snap=$('plusSnap').checked;safeWrite(FEATURES_KEY,features);});
+  const originalLabels=updateLabels;
+  updateLabels=function(){originalLabels();if(zoom===0){$('plusZoomLabel').textContent='画面に合わせる';}updateGuides();};
+  const originalChange=changeSettingsHandler;
+  changeSettingsHandler=function(){maybeSnap();originalChange();updateGuides();};
+  function restoreFeatureUI(){
+    syncFeatureControls();$('plusTexture').value=features.texture;
+    $('plusCurveControls').hidden=!features.curve;$('plusCharControls').hidden=!features.charEnabled;
+    $('plusCurveRadiusVal').textContent=features.curveRadius+' px';$('plusCharScaleVal').textContent=features.charScale+'%';$('plusCharRotationVal').textContent=features.charRotation+'°';
+    $('plusOuterWidthVal').textContent=features.outerWidth+' px';$('plusExtrudeDepthVal').textContent=features.extrudeDepth+' px';$('plusExtrudeAngleVal').textContent=features.extrudeAngle+'°';
+  }
+  refreshLayerSelect();restoreFeatureUI();activateSettingsTab('background');updateGuides();
+})();
 </script>
 </body>
 </html>
