@@ -1069,14 +1069,16 @@ function initSettingsTabs(){
   buttons.forEach((button,index)=>{
     button.addEventListener('click',()=>activateSettingsTab(button.dataset.tab));
     button.addEventListener('keydown',event=>{
-      let next=index;
-      if(event.key==='ArrowRight')next=(index+1)%buttons.length;
-      else if(event.key==='ArrowLeft')next=(index-1+buttons.length)%buttons.length;
+      const allButtons=Array.from(document.querySelectorAll('.settings-tab'));
+      const current=allButtons.indexOf(button);
+      let next=current;
+      if(event.key==='ArrowRight')next=(current+1)%allButtons.length;
+      else if(event.key==='ArrowLeft')next=(current-1+allButtons.length)%allButtons.length;
       else if(event.key==='Home')next=0;
-      else if(event.key==='End')next=buttons.length-1;
+      else if(event.key==='End')next=allButtons.length-1;
       else return;
       event.preventDefault();
-      activateSettingsTab(buttons[next].dataset.tab,true);
+      activateSettingsTab(allButtons[next].dataset.tab,true);
     });
   });
   activateSettingsTab('background');
@@ -1114,7 +1116,7 @@ restoreSavedFont();
   const panels=Array.from(controls.querySelectorAll(':scope > .panel'));
   const textPanel=panels[1],decoratePanel=panels[2];
   const style=document.createElement('style');
-  style.textContent='.settings-tabs{grid-template-columns:repeat(7,minmax(0,1fr))!important}#stage{position:relative}#guideOverlay{position:absolute;pointer-events:none;display:none;overflow:visible;z-index:3}#guideOverlay line{stroke:#2867e8;stroke-width:2;stroke-dasharray:9 7;vector-effect:non-scaling-stroke;opacity:.7}.plus-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.plus-full{grid-column:1/-1}.plus-actions{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.plus-actions .btn{flex:1;min-width:0}.plus-note{font-size:.72rem;color:var(--muted);margin:5px 0}.plus-layer-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.plus-layer-fields .full{grid-column:1/-1}.stage-tools{display:flex;gap:4px;align-items:center}.stage-tools .btn{padding:5px 7px;font-size:.72rem}';
+  style.textContent='.settings-tabs{grid-template-columns:repeat(7,minmax(48px,1fr))!important;overflow-x:auto;overscroll-behavior-x:contain}#stage{position:relative}#guideOverlay{position:absolute;pointer-events:none;display:none;overflow:visible;z-index:3}#guideOverlay line{stroke:#2867e8;stroke-width:2;stroke-dasharray:9 7;vector-effect:non-scaling-stroke;opacity:.7}.plus-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.plus-full{grid-column:1/-1}.plus-actions{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.plus-actions .btn{flex:1;min-width:0}.plus-note{font-size:.72rem;color:var(--muted);margin:5px 0}.plus-layer-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.plus-layer-fields .full{grid-column:1/-1}.stage-tools{display:flex;gap:4px;align-items:center}.stage-tools .btn{padding:5px 7px;font-size:.72rem}';
   document.head.appendChild(style);
   function addTab(id,label){
     const b=document.createElement('button');b.className='settings-tab';b.id='tab-'+id;b.type='button';b.setAttribute('role','tab');b.setAttribute('aria-selected','false');b.setAttribute('aria-controls','settings-'+id);b.dataset.tab=id;b.textContent=label;
@@ -1292,20 +1294,34 @@ restoreSavedFont();
   function updateLayer(){
     const layer=layers.find(x=>x.id===selectedLayer);if(!layer)return;
     Object.assign(layer,{name:$('plusLayerName').value.trim()||'レイヤー',text:$('plusLayerText').value,x:Number($('plusLayerX').value),y:Number($('plusLayerY').value),size:Number($('plusLayerSize').value),rotation:Number($('plusLayerRotation').value),color:$('plusLayerColor').value,opacity:Number($('plusLayerOpacity').value),visible:$('plusLayerVisible').checked});
-    saveLayers();refreshLayerSelect();queueRender();
+    saveLayers();
+    const option=Array.from($('plusLayerSelect').options).find(item=>item.value===layer.id);
+    if(option)option.textContent=(layer.visible===false?'◌ ':'● ')+(layer.name||'レイヤー');
+    queueRender();
   }
   function addLayer(clone){
+    if(layers.length>=50){status('レイヤーは最大50個までです。不要なレイヤーを削除してください。','error');return;}
+    saveUndoPoint();
     const source=clone?layers.find(x=>x.id===selectedLayer):null;
     const layer=source?{...source}:{name:'テキストレイヤー '+(layers.length+1),text:$('textInput').value||'新しい文字',x:Number($('positionX').value),y:Number($('positionY').value),size:Number($('fontSize').value),rotation:Number($('rotation').value),color:$('fontColor').value,opacity:100,visible:true,bold:$('bold').checked,italic:$('italic').checked,outlineWidth:$('strokeEnabled').checked?Number($('strokeWidth').value):0,outlineColor:$('strokeColor').value};
     layer.id='layer-'+Date.now().toString(36)+'-'+(++layerCounter);if(source)layer.name=(source.name||'レイヤー')+' のコピー';
-    layers.push(layer);selectedLayer=layer.id;saveLayers();refreshLayerSelect();queueRender();status('レイヤーを追加しました。','success');
+    layers.push(layer);selectedLayer=layer.id;saveLayers();refreshLayerSelect();queueRender();closeUndoPoint();updateUndoButtons();status('レイヤーを追加しました。','success');
   }
   $('plusLayerSelect').addEventListener('change',()=>{selectedLayer=$('plusLayerSelect').value;refreshLayerSelect();});
   $('plusAddLayer').addEventListener('click',()=>addLayer(false));$('plusCloneLayer').addEventListener('click',()=>addLayer(true));
-  $('plusDeleteLayer').addEventListener('click',()=>{const i=layers.findIndex(x=>x.id===selectedLayer);if(i<0)return;layers.splice(i,1);selectedLayer='';saveLayers();refreshLayerSelect();queueRender();});
-  function reorderLayer(delta){const i=layers.findIndex(x=>x.id===selectedLayer);if(i<0)return;const j=Math.max(0,Math.min(layers.length-1,i+delta));const item=layers.splice(i,1)[0];layers.splice(j,0,item);saveLayers();refreshLayerSelect();queueRender();}
+  $('plusDeleteLayer').addEventListener('click',()=>{const i=layers.findIndex(x=>x.id===selectedLayer);if(i<0)return;saveUndoPoint();layers.splice(i,1);selectedLayer='';saveLayers();refreshLayerSelect();queueRender();closeUndoPoint();updateUndoButtons();});
+  function reorderLayer(delta){const i=layers.findIndex(x=>x.id===selectedLayer);if(i<0)return;const j=Math.max(0,Math.min(layers.length-1,i+delta));if(i===j)return;saveUndoPoint();const item=layers.splice(i,1)[0];layers.splice(j,0,item);saveLayers();refreshLayerSelect();queueRender();closeUndoPoint();updateUndoButtons();}
   $('plusLayerUp').addEventListener('click',()=>reorderLayer(1));$('plusLayerDown').addEventListener('click',()=>reorderLayer(-1));
-  ['plusLayerName','plusLayerText','plusLayerX','plusLayerY','plusLayerSize','plusLayerRotation','plusLayerColor','plusLayerOpacity','plusLayerVisible'].forEach(id=>{const el=$(id);el.addEventListener('input',updateLayer);el.addEventListener('change',updateLayer);});
+  ['plusLayerName','plusLayerText','plusLayerX','plusLayerY','plusLayerSize','plusLayerRotation','plusLayerColor','plusLayerOpacity','plusLayerVisible'].forEach(id=>{
+    const el=$(id);
+    el.addEventListener('pointerdown',saveUndoPoint);
+    el.addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' ','Enter','Backspace','Delete'].includes(event.key))saveUndoPoint();});
+    if(el.tagName==='TEXTAREA'||el.type==='text')el.addEventListener('beforeinput',saveUndoPoint);
+    el.addEventListener('input',()=>{if(!editOpen)saveUndoPoint();updateLayer();});
+    el.addEventListener('change',()=>{updateLayer();closeUndoPoint();updateUndoButtons();});
+    el.addEventListener('pointerup',()=>{closeUndoPoint();updateUndoButtons();});
+    el.addEventListener('blur',()=>{closeUndoPoint();updateUndoButtons();});
+  });
   function syncFeatureControls(){
     $('plusCurve').checked=features.curve;$('plusCurveRadius').value=features.curveRadius;$('plusCurveRadiusVal').textContent=features.curveRadius+' px';$('plusCurveControls').hidden=!features.curve;
     $('plusChar').checked=features.charEnabled;$('plusCharIndex').value=features.charIndex;$('plusCharColor').value=features.charColor;$('plusCharScale').value=features.charScale;$('plusCharRotation').value=features.charRotation;
@@ -1317,13 +1333,34 @@ restoreSavedFont();
   }
   const featureBindings={plusCurve:['curve',Boolean],plusCurveRadius:['curveRadius',Number],plusChar:['charEnabled',Boolean],plusCharIndex:['charIndex',Number],plusCharColor:['charColor',String],plusCharScale:['charScale',Number],plusCharRotation:['charRotation',Number],plusOuter:['outer',Boolean],plusOuterColor:['outerColor',String],plusOuterWidth:['outerWidth',Number],plusExtrude:['extrude',Boolean],plusExtrudeColor:['extrudeColor',String],plusExtrudeDepth:['extrudeDepth',Number],plusExtrudeAngle:['extrudeAngle',Number],plusTexture:['texture',String],plusTextureColor:['textureColor',String],plusGrid:['grid',Boolean],plusCenter:['center',Boolean],plusSnap:['snap',Boolean]};
   Object.entries(featureBindings).forEach(([id,entry])=>{
-    const el=$(id);el.addEventListener('input',()=>{features[entry[0]]=entry[1](el.type==='checkbox'?el.checked:el.value);safeWrite(FEATURES_KEY,features);syncFeatureControls();queueRender();updateGuides();});
-    el.addEventListener('change',()=>{features[entry[0]]=entry[1](el.type==='checkbox'?el.checked:el.value);safeWrite(FEATURES_KEY,features);syncFeatureControls();queueRender();updateGuides();});
+    const el=$(id);
+    el.addEventListener('pointerdown',saveUndoPoint);
+    el.addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' ','Enter'].includes(event.key))saveUndoPoint();});
+    el.addEventListener('input',()=>{
+      if(!editOpen)saveUndoPoint();
+      features[entry[0]]=entry[1](el.type==='checkbox'?el.checked:el.value);
+      safeWrite(FEATURES_KEY,features);syncFeatureControls();queueRender();updateGuides();
+    });
+    el.addEventListener('change',()=>{
+      features[entry[0]]=entry[1](el.type==='checkbox'?el.checked:el.value);
+      safeWrite(FEATURES_KEY,features);syncFeatureControls();queueRender();updateGuides();
+      closeUndoPoint();updateUndoButtons();
+    });
+    el.addEventListener('pointerup',()=>{closeUndoPoint();updateUndoButtons();});
+    el.addEventListener('blur',()=>{closeUndoPoint();updateUndoButtons();});
   });
   function zoomApply(value){
     zoom=value;
-    if(value===0){canvasEl.style.width='';canvasEl.style.height='';canvasEl.style.maxWidth='';canvasEl.style.maxHeight='';$('plusZoomLabel').textContent='画面に合わせる';}
-    else{canvasEl.style.width=(canvasEl.width*value/100)+'px';canvasEl.style.height=(canvasEl.height*value/100)+'px';canvasEl.style.maxWidth='none';canvasEl.style.maxHeight='none';$('plusZoomLabel').textContent=value+'%';}
+    const stage=$('stage');
+    if(value===0){
+      canvasEl.style.width='';canvasEl.style.height='';canvasEl.style.maxWidth='';canvasEl.style.maxHeight='';
+      stage.style.overflow='hidden';stage.style.alignItems='center';stage.style.justifyContent='center';
+      $('plusZoomLabel').textContent='画面に合わせる';
+    }else{
+      canvasEl.style.width=(canvasEl.width*value/100)+'px';canvasEl.style.height=(canvasEl.height*value/100)+'px';canvasEl.style.maxWidth='none';canvasEl.style.maxHeight='none';
+      stage.style.overflow='auto';stage.style.alignItems='flex-start';stage.style.justifyContent='flex-start';
+      $('plusZoomLabel').textContent=value+'%';
+    }
     updateGuides();
   }
   function zoomStep(delta){zoomApply(Math.max(25,Math.min(200,(zoom||100)+delta)));}
@@ -1386,7 +1423,7 @@ restoreSavedFont();
         image.onerror=()=>status('プロジェクトの背景画像を読み込めませんでした。','error');
         image.src=data.backgroundImage;
       }
-      safeWrite(FEATURES_KEY,features);saveLayers();syncFeatureControls();refreshLayerSelect();queueRender();status(data.backgroundImage?'プロジェクトを読み込み中です。':'プロジェクトを読み込みました。','success');
+      safeWrite(FEATURES_KEY,features);saveLayers();syncFeatureControls();refreshLayerSelect();persistSettings();queueRender();status(data.backgroundImage?'プロジェクトを読み込み中です。':'プロジェクトを読み込みました。','success');
     }catch(error){console.error(error);status('プロジェクトファイルを読み込めませんでした。','error');}event.target.value='';};
     reader.onerror=()=>status('ファイルの読み込みに失敗しました。','error');reader.readAsText(file);
   });
@@ -1432,6 +1469,20 @@ restoreSavedFont();
   }
   ['positionX','positionY'].forEach(id=>$(id).addEventListener('change',()=>{maybeSnap();queueRender();}));
   $('plusSnap').addEventListener('change',()=>{features.snap=$('plusSnap').checked;safeWrite(FEATURES_KEY,features);});
+  const baseReadSettings=readSettings;
+  readSettings=function(){
+    const snapshot=baseReadSettings();
+    snapshot.__studioPlus={...features};
+    snapshot.__studioPlusLayers=layers.map(layer=>({...layer}));
+    return snapshot;
+  };
+  const baseApplySettings=applySettings;
+  applySettings=function(settings){
+    if(settings&&settings.__studioPlus&&typeof settings.__studioPlus==='object')features={...featureDefaults,...settings.__studioPlus};
+    if(settings&&Array.isArray(settings.__studioPlusLayers))layers=settings.__studioPlusLayers.filter(layer=>layer&&typeof layer.text==='string').slice(0,50);
+    baseApplySettings(settings);
+    safeWrite(FEATURES_KEY,features);saveLayers();syncFeatureControls();refreshLayerSelect();
+  };
   const originalLabels=updateLabels;
   updateLabels=function(){originalLabels();if(zoom===0){$('plusZoomLabel').textContent='画面に合わせる';}updateGuides();};
   const originalChange=changeSettingsHandler;
