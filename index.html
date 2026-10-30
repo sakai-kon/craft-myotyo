@@ -1219,7 +1219,7 @@ restoreSavedFont();
   };
   const originalVerticalGlyph=drawVerticalGlyph;
   drawVerticalGlyph=function(glyph,x,y,stroke,fontSize){
-    if(stroke&&features.outer){ctx2.save();ctx2.lineWidth+=Number(features.outerWidth)*2;ctx2.strokeStyle=features.outerColor;originalVerticalGlyph(glyph,x,y,true,fontSize);ctx2.restore();}
+    if(stroke&&features.outer&&!forceOuterOnly){ctx2.save();ctx2.lineWidth+=Number(features.outerWidth)*2;ctx2.strokeStyle=features.outerColor;originalVerticalGlyph(glyph,x,y,true,fontSize);ctx2.restore();}
     if(!stroke&&features.extrude&&ctx2.filter==='none'&&ctx2.globalAlpha>.98){const dep=Number(features.extrudeDepth),a=Number(features.extrudeAngle)*Math.PI/180;ctx2.save();ctx2.fillStyle=features.extrudeColor;for(let d=dep;d>=1;d--)originalVerticalGlyph(glyph,x+Math.cos(a)*d,y+Math.sin(a)*d,false,fontSize);ctx2.restore();}
     if(!stroke&&features.texture!=='none'){const p=texturePattern();if(p){ctx2.save();ctx2.fillStyle=p;originalVerticalGlyph(glyph,x,y,false,fontSize);ctx2.restore();return;}}
     originalVerticalGlyph(glyph,x,y,stroke,fontSize);
@@ -1237,7 +1237,7 @@ restoreSavedFont();
       ctx2.save();ctx2.translate(radius*Math.sin(theta),radius*(Math.cos(theta)-1));ctx2.rotate(-theta);
       if($('shadowEnabled').checked){ctx2.save();ctx2.filter=Number($('shadowBlur').value)>0?'blur('+Number($('shadowBlur').value)+'px)':'none';ctx2.globalAlpha=.82;ctx2.fillStyle=$('shadowColor').value;ctx2.fillText(glyph,Number($('shadowX').value),Number($('shadowY').value));ctx2.restore();}
       if(features.extrude){const d=Number(features.extrudeDepth),a=Number(features.extrudeAngle)*Math.PI/180;ctx2.fillStyle=features.extrudeColor;for(let k=d;k>0;k--)ctx2.fillText(glyph,Math.cos(a)*k,Math.sin(a)*k);}
-      if(features.outer){ctx2.lineWidth=(Number($('strokeWidth').value)+Number(features.outerWidth))*2;ctx2.strokeStyle=features.outerColor;ctx2.strokeText(glyph,0,0);}
+      if(features.outer){ctx2.lineWidth=((forceOuterOnly?0:Number($('strokeWidth').value))+Number(features.outerWidth))*2;ctx2.strokeStyle=features.outerColor;ctx2.strokeText(glyph,0,0);}
       if($('strokeEnabled').checked&&!forceOuterOnly){ctx2.lineWidth=Number($('strokeWidth').value)*2;ctx2.strokeStyle=$('strokeColor').value;ctx2.strokeText(glyph,0,0);}
       ctx2.fillStyle=active?features.charColor:($('fillMode').value==='gradient'?(function(){const g=ctx2.createLinearGradient(-length/2,0,length/2,0);g.addColorStop(0,$('gradientStart').value);g.addColorStop(1,$('gradientEnd').value);return g;})():texturePattern()||$('fontColor').value);
       if(active){ctx2.rotate(Number(features.charRotation)*Math.PI/180);const sc=Number(features.charScale)/100;ctx2.scale(sc,sc);}
@@ -1356,15 +1356,34 @@ restoreSavedFont();
   $('plusApplyTemplate').addEventListener('click',applyTemplate);
   function blobDownload(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);}
   function saveProject(){
-    const data={format:'craft-myotyo-project',version:1,settings:readSettings(),features:features,layers:layers};
-    blobDownload(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'craft-myotyo-project.json');status('プロジェクトをJSONで保存しました。','success');
+    const data={format:'craft-myotyo-project',version:2,settings:readSettings(),features:features,layers:layers,backgroundImage:null};
+    try{
+      if(backgroundImage){
+        const iw=backgroundImage.naturalWidth||backgroundImage.width,ih=backgroundImage.naturalHeight||backgroundImage.height;
+        const scale=Math.min(1,4096/Math.max(iw,ih));
+        const temp=document.createElement('canvas');temp.width=Math.max(1,Math.round(iw*scale));temp.height=Math.max(1,Math.round(ih*scale));
+        const t=temp.getContext('2d');if(!t)throw new Error('画像を保存できません');
+        t.drawImage(backgroundImage,0,0,temp.width,temp.height);
+        data.backgroundImage=temp.toDataURL('image/jpeg',.88);
+        if(data.backgroundImage.length>20000000)throw new Error('背景画像が大きすぎます。画像を小さくして再度保存してください。');
+      }
+      blobDownload(new Blob([JSON.stringify(data)],{type:'application/json'}),'craft-myotyo-project.json');
+      status('プロジェクトをJSONで保存しました。背景画像も含まれています。','success');
+    }catch(error){console.error(error);status(error.message||'プロジェクトを保存できませんでした。','error');}
   }
   $('plusSaveProject').addEventListener('click',saveProject);
   $('plusLoadProject').addEventListener('change',event=>{
     const file=event.target.files&&event.target.files[0];if(!file)return;const reader=new FileReader();
     reader.onload=()=>{try{const data=JSON.parse(reader.result);if(data.format!=='craft-myotyo-project'||!data.settings||!Array.isArray(data.layers))throw new Error('invalid project');
       applySettings({...DEFAULTS,...data.settings});features={...featureDefaults,...(data.features||{})};layers=data.layers.filter(x=>x&&typeof x.text==='string').slice(0,50);selectedLayer='';
-      safeWrite(FEATURES_KEY,features);saveLayers();syncFeatureControls();refreshLayerSelect();queueRender();status('プロジェクトを読み込みました。','success');
+      backgroundLoadToken++;backgroundImage=null;if(backgroundImageUrl){URL.revokeObjectURL(backgroundImageUrl);backgroundImageUrl=null;}
+      if(typeof data.backgroundImage==='string'&&data.backgroundImage.startsWith('data:image/')&&data.backgroundImage.length<=20000000){
+        const image=new Image();const token=backgroundLoadToken;
+        image.onload=()=>{if(token!==backgroundLoadToken)return;backgroundImage=image;queueRender();status('プロジェクトと背景画像を読み込みました。','success');};
+        image.onerror=()=>status('プロジェクトの背景画像を読み込めませんでした。','error');
+        image.src=data.backgroundImage;
+      }
+      safeWrite(FEATURES_KEY,features);saveLayers();syncFeatureControls();refreshLayerSelect();queueRender();status(data.backgroundImage?'プロジェクトを読み込み中です。':'プロジェクトを読み込みました。','success');
     }catch(error){console.error(error);status('プロジェクトファイルを読み込めませんでした。','error');}event.target.value='';};
     reader.onerror=()=>status('ファイルの読み込みに失敗しました。','error');reader.readAsText(file);
   });
