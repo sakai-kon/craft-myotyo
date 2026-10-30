@@ -1187,7 +1187,8 @@ restoreSavedFont();
   }
   drawSpacedText=function(text,x,y,spacing,stroke){
     const glyphs=splitGlyphs(text),target=Number(features.charIndex)-1;
-    const pattern=(!stroke&&features.texture!=='none')?texturePattern():null;
+    const adjustGlyph=features.charEnabled&&ctx2.filter==='none'&&ctx2.globalAlpha>.98;
+    const pattern=(!stroke&&ctx2.filter==='none'&&ctx2.globalAlpha>.98&&features.texture!=='none')?texturePattern():null;
     if(stroke&&features.outer&&!forceOuterOnly){
       ctx2.save();ctx2.lineWidth+=Number(features.outerWidth)*2;ctx2.strokeStyle=features.outerColor;
       originalDraw(text,x,y,spacing,true);ctx2.restore();
@@ -1198,10 +1199,10 @@ restoreSavedFont();
       for(let d=depth;d>=1;d--)originalDraw(text,x+Math.cos(angle)*d,y+Math.sin(angle)*d,spacing,false);
       ctx2.restore();
     }
-    if(!features.charEnabled&&!pattern){originalDraw(text,x,y,spacing,stroke);return;}
+    if(!adjustGlyph&&!pattern){originalDraw(text,x,y,spacing,stroke);return;}
     ctx2.save();let cursor=x;
     glyphs.forEach((glyph,i)=>{
-      const w=ctx2.measureText(glyph).width,active=features.charEnabled&&i===target;
+      const w=ctx2.measureText(glyph).width,active=adjustGlyph&&i===target;
       if(active){
         ctx2.save();ctx2.translate(cursor+w/2,y);ctx2.rotate(Number(features.charRotation)*Math.PI/180);
         const scale=Number(features.charScale)/100;ctx2.scale(scale,scale);
@@ -1373,18 +1374,24 @@ restoreSavedFont();
     const lines=String(text).split('\n'),gap=size*Number($('lineHeight').value),spans=lines.map((v,i)=>'<tspan x="'+x+'" dy="'+(i===0?-(lines.length-1)*gap/2:gap)+'">'+escXml(v)+'</tspan>').join('');
     const transform='rotate('+Number(rotation||0)+' '+x+' '+y+')';
     let str='';
+    if(features.extrude){const rad=Number(features.extrudeAngle)*Math.PI/180,depth=Number(features.extrudeDepth);for(let d=depth;d>0;d--){const dx=Math.cos(rad)*d,dy=Math.sin(rad)*d;str+='<text x="'+(x+dx)+'" y="'+(y+dy)+'" text-anchor="'+anchor+'" dominant-baseline="middle" font-family="sans-serif" font-size="'+size+'" font-weight="'+weight+'" fill="'+features.extrudeColor+'">'+spans+'</text>';}}
+    if(features.outer)str+='<text x="'+x+'" y="'+y+'" transform="'+transform+'" text-anchor="'+anchor+'" dominant-baseline="middle" font-family="sans-serif" font-size="'+size+'" font-weight="'+weight+'" fill="none" stroke="'+features.outerColor+'" stroke-width="'+(Number(outlineWidth||0)+Number(features.outerWidth))*2+'" stroke-linejoin="round">'+spans+'</text>';
     if(outlineWidth>0)str+='<text x="'+x+'" y="'+y+'" transform="'+transform+'" text-anchor="'+anchor+'" dominant-baseline="middle" font-family="sans-serif" font-size="'+size+'" font-weight="'+weight+'" fill="none" stroke="'+outline+'" stroke-width="'+outlineWidth*2+'" stroke-linejoin="round">'+spans+'</text>';
     str+='<text x="'+x+'" y="'+y+'" transform="'+transform+'" text-anchor="'+anchor+'" dominant-baseline="middle" font-family="sans-serif" font-size="'+size+'" font-weight="'+weight+'" fill="'+color+'">'+spans+'</text>';return str;
   }
   function exportSVG(){
     const w=canvasEl.width,h=canvasEl.height,s=readSettings(),x=w*Number(s.positionX)/100,y=h*Number(s.positionY)/100;
-    let defs='';if(s.fillMode==='gradient')defs='<defs><linearGradient id="myotyoGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="'+s.gradientStart+'"/><stop offset="100%" stop-color="'+s.gradientEnd+'"/></linearGradient></defs>';
+    let defs='<defs>';if(s.fillMode==='gradient')defs+='<linearGradient id="myotyoGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="'+s.gradientStart+'"/><stop offset="100%" stop-color="'+s.gradientEnd+'"/></linearGradient>';
+    if(features.texture==='dots')defs+='<pattern id="myotyoTexture" width="24" height="24" patternUnits="userSpaceOnUse"><rect width="24" height="24" fill="'+s.fontColor+'"/><circle cx="6" cy="6" r="2" fill="'+features.textureColor+'"/><circle cx="18" cy="18" r="2" fill="'+features.textureColor+'"/></pattern>';
+    if(features.texture==='lines')defs+='<pattern id="myotyoTexture" width="24" height="24" patternUnits="userSpaceOnUse"><rect width="24" height="24" fill="'+s.fontColor+'"/><path d="M-4 20 L20 -4 M4 28 L28 4" stroke="'+features.textureColor+'" stroke-width="3"/></pattern>';
+    if(features.texture==='checker')defs+='<pattern id="myotyoTexture" width="24" height="24" patternUnits="userSpaceOnUse"><rect width="24" height="24" fill="'+s.fontColor+'"/><path d="M0 0h12v12H0z M12 12h12v12H12z" fill="'+features.textureColor+'"/></pattern>';
+    defs+='</defs>';
     let bg=s.transparent?'':'<rect width="100%" height="100%" fill="'+s.bgColor+'"/>';
     if(backgroundImage){const tmp=document.createElement('canvas');tmp.width=w;tmp.height=h;const t=tmp.getContext('2d'),iw=backgroundImage.naturalWidth,ih=backgroundImage.naturalHeight,mode=$('imageFit').value;
       if(mode==='stretch')t.drawImage(backgroundImage,0,0,w,h);else{const scale=mode==='contain'?Math.min(w/iw,h/ih):Math.max(w/iw,h/ih),dw=iw*scale,dh=ih*scale;t.drawImage(backgroundImage,(w-dw)/2,(h-dh)/2,dw,dh);}
       bg=bg+'<image x="0" y="0" width="'+w+'" height="'+h+'" href="'+tmp.toDataURL('image/png')+'"/>';
     }
-    let fill=s.fillMode==='gradient'?'url(#myotyoGradient)':s.fontColor;
+    let fill=s.fillMode==='gradient'?'url(#myotyoGradient)':(features.texture!=='none'?'url(#myotyoTexture)':s.fontColor);
     let body=svgText(s.textInput,x,y,Number(s.fontSize),fill,Number(s.rotation),s.bold?'700':'400',s.align,s.strokeEnabled?s.strokeColor:'none',s.strokeEnabled?Number(s.strokeWidth):0);
     layers.forEach(layer=>{if(layer.visible!==false)body+='<g opacity="'+Number(layer.opacity??100)/100+'">'+svgText(layer.text,w*Number(layer.x??50)/100,h*Number(layer.y??50)/100,Number(layer.size)||64,layer.color||'#ffcf33',layer.rotation||0,layer.bold?'700':'400','center',layer.outlineColor||'none',Number(layer.outlineWidth)||0)+'</g>';});
     const svgTextValue='<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'">'+defs+bg+body+'</svg>';
