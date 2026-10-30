@@ -1478,7 +1478,8 @@ restoreSavedFont();
   };
   const baseApplySettings=applySettings;
   applySettings=function(settings){
-    if(settings&&settings.__studioPlus&&typeof settings.__studioPlus==='object')features={...featureDefaults,...settings.__studioPlus};
+    if(settings===DEFAULTS){features={...featureDefaults};layers=[];selectedLayer='';}
+    else if(settings&&settings.__studioPlus&&typeof settings.__studioPlus==='object')features={...featureDefaults,...settings.__studioPlus};
     if(settings&&Array.isArray(settings.__studioPlusLayers))layers=settings.__studioPlusLayers.filter(layer=>layer&&typeof layer.text==='string').slice(0,50);
     baseApplySettings(settings);
     safeWrite(FEATURES_KEY,features);saveLayers();syncFeatureControls();refreshLayerSelect();
