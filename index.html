@@ -1364,7 +1364,7 @@ restoreSavedFont();
         const temp=document.createElement('canvas');temp.width=Math.max(1,Math.round(iw*scale));temp.height=Math.max(1,Math.round(ih*scale));
         const t=temp.getContext('2d');if(!t)throw new Error('画像を保存できません');
         t.drawImage(backgroundImage,0,0,temp.width,temp.height);
-        data.backgroundImage=temp.toDataURL('image/jpeg',.88);
+        data.backgroundImage=temp.toDataURL('image/png');
         if(data.backgroundImage.length>20000000)throw new Error('背景画像が大きすぎます。画像を小さくして再度保存してください。');
       }
       blobDownload(new Blob([JSON.stringify(data)],{type:'application/json'}),'craft-myotyo-project.json');
