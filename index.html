@@ -534,7 +534,7 @@ function drawBackground(width,height){
   const w=iw*scale,h=ih*scale;
   ctx.drawImage(backgroundImage,(width-w)/2,(height-h)/2,w,h);
 }
-function drawVerticalGlyph(glyph,x,y,stroke,fontSize){
+function drawVerticalGlyph(glyph,x,y,stroke,fontSize,glyphIndex=0){
   // Place Japanese comma/full stop near the upper-right of their vertical cell.
   const punctuation='、。，．'.includes(glyph);
   const drawX=x+(punctuation?fontSize*.16:0);
@@ -580,7 +580,8 @@ function drawVerticalText(lines,fontSize,spacing,width,height){
       const top=tops[columnIndex];
       glyphs.forEach((glyph,glyphIndex)=>{
         const y=top+fontSize/2+glyphIndex*glyphPitch+offsetY;
-        drawVerticalGlyph(glyph,x,y,stroke,fontSize);
+        const textIndex=columns.slice(0,columnIndex).reduce((sum,column)=>sum+column.length,0)+glyphIndex+1;
+        drawVerticalGlyph(glyph,x,y,stroke,fontSize,textIndex);
       });
     });
   };
@@ -1218,10 +1219,12 @@ restoreSavedFont();
     ctx2.restore();
   };
   const originalVerticalGlyph=drawVerticalGlyph;
-  drawVerticalGlyph=function(glyph,x,y,stroke,fontSize){
+  drawVerticalGlyph=function(glyph,x,y,stroke,fontSize,glyphIndex=0){
+    const active=!stroke&&features.charEnabled&&ctx2.filter==='none'&&ctx2.globalAlpha>.98&&glyphIndex===Number(features.charIndex);
     if(stroke&&features.outer&&!forceOuterOnly){ctx2.save();ctx2.lineWidth+=Number(features.outerWidth)*2;ctx2.strokeStyle=features.outerColor;originalVerticalGlyph(glyph,x,y,true,fontSize);ctx2.restore();}
     if(!stroke&&features.extrude&&ctx2.filter==='none'&&ctx2.globalAlpha>.98){const dep=Number(features.extrudeDepth),a=Number(features.extrudeAngle)*Math.PI/180;ctx2.save();ctx2.fillStyle=features.extrudeColor;for(let d=dep;d>=1;d--)originalVerticalGlyph(glyph,x+Math.cos(a)*d,y+Math.sin(a)*d,false,fontSize);ctx2.restore();}
-    if(!stroke&&features.texture!=='none'){const p=texturePattern();if(p){ctx2.save();ctx2.fillStyle=p;originalVerticalGlyph(glyph,x,y,false,fontSize);ctx2.restore();return;}}
+    if(active){ctx2.save();ctx2.translate(x,y);ctx2.rotate(Number(features.charRotation)*Math.PI/180);const scale=Number(features.charScale)/100;ctx2.scale(scale,scale);ctx2.fillStyle=features.charColor;originalVerticalGlyph(glyph,0,0,false,fontSize);ctx2.restore();return;}
+    if(!stroke&&features.texture!=='none'&&ctx2.filter==='none'&&ctx2.globalAlpha>.98){const p=texturePattern();if(p){ctx2.save();ctx2.fillStyle=p;originalVerticalGlyph(glyph,x,y,false,fontSize);ctx2.restore();return;}}
     originalVerticalGlyph(glyph,x,y,stroke,fontSize);
   };
   function drawCurve(){
@@ -1239,7 +1242,7 @@ restoreSavedFont();
       if(features.extrude){const d=Number(features.extrudeDepth),a=Number(features.extrudeAngle)*Math.PI/180;ctx2.fillStyle=features.extrudeColor;for(let k=d;k>0;k--)ctx2.fillText(glyph,Math.cos(a)*k,Math.sin(a)*k);}
       if(features.outer){ctx2.lineWidth=((forceOuterOnly?0:Number($('strokeWidth').value))+Number(features.outerWidth))*2;ctx2.strokeStyle=features.outerColor;ctx2.strokeText(glyph,0,0);}
       if($('strokeEnabled').checked&&!forceOuterOnly){ctx2.lineWidth=Number($('strokeWidth').value)*2;ctx2.strokeStyle=$('strokeColor').value;ctx2.strokeText(glyph,0,0);}
-      ctx2.fillStyle=active?features.charColor:($('fillMode').value==='gradient'?(function(){const g=ctx2.createLinearGradient(-length/2,0,length/2,0);g.addColorStop(0,$('gradientStart').value);g.addColorStop(1,$('gradientEnd').value);return g;})():texturePattern()||$('fontColor').value);
+      ctx2.fillStyle=active?features.charColor:(features.texture!=='none'?(texturePattern()||$('fontColor').value):($('fillMode').value==='gradient'?(function(){const g=ctx2.createLinearGradient(-length/2,0,length/2,0);g.addColorStop(0,$('gradientStart').value);g.addColorStop(1,$('gradientEnd').value);return g;})():$('fontColor').value));
       if(active){ctx2.rotate(Number(features.charRotation)*Math.PI/180);const sc=Number(features.charScale)/100;ctx2.scale(sc,sc);}
       ctx2.fillText(glyph,0,0);ctx2.restore();current+=widths[i];
     });
@@ -1411,7 +1414,7 @@ restoreSavedFont();
       bg=bg+'<image x="0" y="0" width="'+w+'" height="'+h+'" href="'+tmp.toDataURL('image/png')+'"/>';
     }
     const textureId={dots:'myotyoTextureDots',lines:'myotyoTextureLines',checker:'myotyoTextureChecker'}[features.texture];
-    let fill=s.fillMode==='gradient'?'url(#myotyoGradient)':(textureId?'url(#'+textureId+')':s.fontColor);
+    let fill=textureId?'url(#'+textureId+')':(s.fillMode==='gradient'?'url(#myotyoGradient)':s.fontColor);
     let body=svgText(s.textInput,x,y,Number(s.fontSize),fill,Number(s.rotation),s.bold?'700':'400',s.align,s.strokeEnabled?s.strokeColor:'none',s.strokeEnabled?Number(s.strokeWidth):0);
     layers.forEach(layer=>{if(layer.visible!==false)body+='<g opacity="'+Number(layer.opacity??100)/100+'">'+svgText(layer.text,w*Number(layer.x??50)/100,h*Number(layer.y??50)/100,Number(layer.size)||64,layer.color||'#ffcf33',layer.rotation||0,layer.bold?'700':'400','center',layer.outlineColor||'none',Number(layer.outlineWidth)||0)+'</g>';});
     const svgTextValue='<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'">'+defs+bg+body+'</svg>';
