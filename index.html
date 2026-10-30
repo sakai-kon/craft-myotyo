@@ -1289,6 +1289,7 @@ restoreSavedFont();
   function refreshLayerSelect(){
     const select=$('plusLayerSelect');select.replaceChildren(new Option('レイヤーを選択',''));
     layers.forEach((layer,i)=>select.add(new Option((layer.visible===false?'◌ ':'● ')+(layer.name||'レイヤー '+(i+1)),layer.id)));
+    if(!layers.some(layer=>layer.id===selectedLayer))selectedLayer='';
     select.value=selectedLayer;fillLayerFields(layers.find(x=>x.id===selectedLayer));
   }
   function updateLayer(){
